@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'components/enums/item_rarity.dart';
+import 'components/enums/item_type.dart';
 import 'components/items/potion_item.dart';
 import 'components/items/weapon_item.dart';
 import 'components/weapons/machine_gun.dart';
@@ -15,7 +16,10 @@ import 'npc.dart';
 import 'components/weapons/weapon.dart';
 import 'components/items/inventory.dart';
 import 'components/items/item.dart';
+import 'components/items/equipment.dart';
 import 'ui/Inventory_ui.dart';
+import 'ui/dialogue_system.dart';
+import 'ui/character_panel.dart';
 
 /// 定義角色動畫狀態
 enum PlayerState { idle, walking, dead }
@@ -35,7 +39,7 @@ class VisibleTextComponent extends TextComponent with HasVisibility {
 class Player extends SpriteAnimationGroupComponent<PlayerState>
     with HasGameReference<NightAndRainGame>, KeyboardHandler {
   // =========== 移動與物理參數 ===========
-  final double speed = 200.0;
+  final double moveSpeed = 200.0; // 移動速度 (原來的 speed)
   final double acceleration = 1200.0;
   final double deceleration = 2400.0;
   final double maxSpeed = 300.0;
@@ -56,6 +60,14 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
   final double manaRegenRate = 0.5; // 每0.5秒恢復1點魔力
   final double healthRegenRate = 1.0; // 每秒恢復的生命值，休息時
 
+  // 戰鬥屬性
+  double attack = 10.0;
+  double defense = 5.0;
+  double speed = 10.0;
+  int level = 1;
+  int experience = 0;
+  int experienceToNextLevel = 100;
+
   // =========== 武器系統 ===========
   double weaponAngle = 0.0;
   bool isShooting = false;
@@ -66,8 +78,10 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
 
   // =========== 背包系統 ===========
   late Inventory inventory;
+  late Equipment equipment;
   late InventoryUI inventoryUI;
-  bool isInventoryVisible = false;
+  late CharacterPanel characterPanel;
+  late DialogueSystem dialogueSystem;
 
   // =========== NPC互動系統 ===========
   NPC? interactingNPC;
@@ -89,6 +103,8 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
     _setupDialogueBox();
     _initWeapons();
     _initInventory();
+    _initEquipment();
+    _initUIComponents();
     await super.onLoad();
   }
 
@@ -96,14 +112,27 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
     // 創建背包實例
     inventory = Inventory(player: this);
 
-    // 創建背包UI
-    inventoryUI = InventoryUI(inventory: inventory);
-
-    // Instead of adding to game directly, add to the viewport
-    game.cameraComponent.viewport.add(inventoryUI);
-
     // 添加一些初始物品到背包
     _addStartingItems();
+  }
+
+  void _initEquipment() {
+    // 創建裝備系統
+    equipment = Equipment();
+  }
+
+  void _initUIComponents() {
+    // 創建背包UI
+    inventoryUI = InventoryUI(inventory: inventory, equipment: equipment);
+    game.cameraComponent.viewport.add(inventoryUI);
+
+    // 創建角色面板
+    characterPanel = CharacterPanel();
+    game.cameraComponent.viewport.add(characterPanel);
+
+    // 創建對話系統
+    dialogueSystem = DialogueSystem();
+    game.cameraComponent.viewport.add(dialogueSystem);
   }
 
   /// 添加初始物品到背包
@@ -127,19 +156,27 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
       rarity: ItemRarity.common,
     );
 
-    // 添加武器物品 - 這些武器只是示例，玩家已有三種基本武器
-    final pistolItem = WeaponItem(
-      id: 'weapon_pistol',
-      name: '新手手槍',
-      description: '基本的手槍，適合初學者使用',
-      weapon: Pistol(),
-      rarity: ItemRarity.common,
-    );
+    // 使用工廠方法創建武器物品
+    final pistolItem = WeaponItem.createPistolItem(ItemRarity.uncommon);
+    final shotgunItem = WeaponItem.createShotgunItem(ItemRarity.common);
+
+    // 添加裝備示例
+    // final helmetItem = Item(
+    //   id: 'helmet_leather',
+    //   name: '皮革頭盔',
+    //   description: '基本的皮革頭盔，提供少量防禦',
+    //   type: ItemType.equipment,
+    //   rarity: ItemRarity.uncommon,
+    //   isEquippable: true,
+    //   equipType: 'helmet',
+    //   stats: {'defense': 3.0, 'maxHealth': 10.0},
+    // );
 
     // 添加到背包
     inventory.addItem(healthPotion);
     inventory.addItem(manaPotion);
     inventory.addItem(pistolItem);
+    inventory.addItem(shotgunItem);
   }
 
   /// 載入角色動畫
@@ -214,6 +251,8 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
 
   /// 設置對話框
   void _setupDialogueBox() {
+    // 先前簡單的對話框現在由 DialogueSystem 取代，
+    // 但仍保留該方法和基本對話框以兼容舊程式碼
     dialogueBox = VisibleTextComponent(
       text: '',
       textRenderer: TextPaint(
@@ -233,12 +272,16 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
 
   /// 初始化武器系統
   void _initWeapons() {
-    // 添加三種武器
-    weapons.addAll([Pistol(), Shotgun(), MachineGun()]);
+    // 添加三種武器，並賦予稀有度
+    weapons.addAll([
+      Pistol(rarity: ItemRarity.common),
+      Shotgun(rarity: ItemRarity.common),
+      MachineGun(rarity: ItemRarity.common),
+    ]);
 
     // 設置武器信息顯示
     weaponInfoText = VisibleTextComponent(
-      text: '武器: ${currentWeapon.name}',
+      text: '武器: ${currentWeapon.name} (${currentWeapon.rarity.name})',
       textRenderer: TextPaint(
         style: const TextStyle(
           fontSize: 16.0,
@@ -329,15 +372,34 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
 
   /// 檢查NPC互動
   void _checkNPCInteractions() {
-    final nearestNPC = game.gameWorld.interactWithNearestNPC(
-      position,
-      maxDistance: interactionRadius,
-    );
+    // 定義不同的互動距離
+    final greetingRadius = interactionRadius * 1.2; // 問候半徑比互動半徑大
+    final actionRadius = interactionRadius * 0.7; // 交談半徑比互動半徑小
 
-    if (nearestNPC != null && interactingNPC == null) {
-      canInteract = true;
-    } else if (interactingNPC == null) {
-      canInteract = false;
+    // 更新所有NPC的互動提示狀態
+    for (final npc in game.gameWorld.npcs) {
+      final distance = position.distanceTo(npc.position);
+
+      // 如果玩家在問候半徑內，顯示問候語
+      if (distance <= greetingRadius) {
+        npc.setGreetingVisible(true);
+
+        // 如果玩家在交互半徑內，顯示交互提示
+        if (distance <= interactionRadius) {
+          npc.setInteractionHintVisible(true);
+
+          // 如果玩家在行動半徑內，允許互動
+          if (distance <= actionRadius && interactingNPC == null) {
+            canInteract = true;
+          }
+        } else {
+          npc.setInteractionHintVisible(false);
+        }
+      } else {
+        // 如果玩家走遠，隱藏所有提示
+        npc.setGreetingVisible(false);
+        npc.setInteractionHintVisible(false);
+      }
     }
 
     // 如果玩家走遠了，關閉對話
@@ -345,6 +407,7 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
       final distance = position.distanceTo(interactingNPC!.position);
       if (distance > interactionRadius * 1.5) {
         hideDialogue();
+        dialogueSystem.closeDialogue();
         interactingNPC = null;
       }
     }
@@ -375,8 +438,10 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
   void updateMovement(Set<LogicalKeyboardKey> keysPressed) {
     if (isDead) return;
 
-    // 如果背包是開著的，禁用移動
-    if (inventoryUI.isVisible) {
+    // 如果背包或角色面板是開著的，禁用移動
+    if (inventoryUI.isVisible ||
+        characterPanel.isVisible ||
+        dialogueSystem.isVisible) {
       direction = Vector2.zero();
       return;
     }
@@ -415,14 +480,12 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
       toggleInventory();
     }
 
-    // 武器切換
-    if (keysPressed.contains(LogicalKeyboardKey.digit1)) {
-      switchWeapon(0);
-    } else if (keysPressed.contains(LogicalKeyboardKey.digit2)) {
-      switchWeapon(1);
-    } else if (keysPressed.contains(LogicalKeyboardKey.digit3)) {
-      switchWeapon(2);
+    // 角色面板控制
+    if (keysPressed.contains(LogicalKeyboardKey.keyC)) {
+      toggleCharacterPanel();
     }
+
+    // 注意：武器切換已經移至 HotkeysHud 處理，不再從這裡直接控制
   }
 
   void updateWeaponAngle(Vector2 targetPosition) {
@@ -443,12 +506,20 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
     if (index >= 0 && index < weapons.length && currentWeaponIndex != index) {
       currentWeaponIndex = index;
       if (weaponInfoText != null) {
-        weaponInfoText!.text = '武器: ${currentWeapon.name}';
+        weaponInfoText!.text =
+            '武器: ${currentWeapon.name} (${currentWeapon.rarity.name})';
       }
     }
   }
 
   void shoot() {
+    // 檢查 UI 是否開啟，如果開啟則禁止射擊
+    if (inventoryUI.isVisible ||
+        characterPanel.isVisible ||
+        dialogueSystem.isVisible) {
+      return;
+    }
+
     if (!isDead && currentMana >= getCurrentWeaponManaCost()) {
       // 直接嘗試射擊
       if (currentWeapon.shoot(position, weaponAngle, game)) {
@@ -476,6 +547,11 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
 
   /// 切換背包顯示狀態
   void toggleInventory() {
+    // 如果對話框開著，則先關閉
+    if (dialogueSystem.isVisible) {
+      dialogueSystem.closeDialogue();
+    }
+
     inventoryUI.toggle();
     // 當背包開啟時，停止移動和射擊
     if (inventoryUI.isVisible) {
@@ -508,11 +584,18 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
     return result;
   }
 
+  /// 切換角色面板顯示狀態
+  void toggleCharacterPanel() {
+    // 現在直接調用背包UI，因為角色狀態已整合到背包中
+    toggleInventory();
+  }
+
   // =========== NPC互動 ===========
 
   void attemptInteraction() {
     if (interactingNPC != null) {
       hideDialogue();
+      dialogueSystem.closeDialogue();
       interactingNPC = null;
     } else {
       interactingNPC = game.gameWorld.interactWithNearestNPC(
@@ -521,7 +604,38 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
       );
 
       if (interactingNPC != null) {
-        showDialogue(interactingNPC!.getRandomDialogue());
+        // 使用新的對話系統
+        final dialogueText = interactingNPC!.getRandomDialogue();
+
+        // 創建對話數據
+        final dialogue = DialogueData(
+          id:
+              'npc_${interactingNPC!.id}_${DateTime.now().millisecondsSinceEpoch}',
+          speaker: interactingNPC!.name,
+          text: dialogueText,
+          options: [
+            DialogueOption(
+              text: '再見',
+              onSelected: () {
+                hideDialogue();
+                interactingNPC = null;
+              },
+            ),
+            DialogueOption(
+              text: '詢問更多',
+              onSelected: () {
+                final moreText = interactingNPC!.getRandomDialogue();
+                showDialogue(moreText); // 使用舊的對話系統顯示更多對話
+              },
+            ),
+          ],
+        );
+
+        // 顯示對話
+        dialogueSystem.startDialogue(dialogue);
+
+        // 同時兼容舊系統
+        showDialogue(dialogueText);
       }
     }
   }
@@ -536,6 +650,76 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
   void hideDialogue() {
     if (dialogueBox != null) {
       (dialogueBox as HasVisibility).isVisible = false;
+    }
+  }
+
+  // =========== 裝備系統 ===========
+
+  /// 裝備物品
+  bool equipItem(int inventoryIndex) {
+    if (inventoryIndex < 0 || inventoryIndex >= inventory.items.length) {
+      return false;
+    }
+
+    final item = inventory.items[inventoryIndex];
+    if (!item.isEquippable) return false;
+
+    // 先卸下同類型的裝備
+    final oldItem = equipment.unequip(item.equipType!);
+
+    // 裝備新物品
+    bool equipped = equipment.equip(item);
+
+    if (equipped) {
+      // 如果成功裝備，從背包移除該物品
+      inventory.removeItemAt(inventoryIndex);
+
+      // 如果有舊裝備，加入背包
+      if (oldItem != null) {
+        inventory.addItem(oldItem);
+      }
+
+      // 更新玩家屬性
+      _updatePlayerStats();
+    }
+
+    return equipped;
+  }
+
+  /// 卸下裝備
+  bool unequipItem(String slot) {
+    final item = equipment.unequip(slot);
+    if (item != null) {
+      inventory.addItem(item);
+      _updatePlayerStats();
+      return true;
+    }
+    return false;
+  }
+
+  /// 更新玩家屬性（基於裝備加成）
+  void _updatePlayerStats() {
+    // 獲取裝備加成
+    final stats = equipment.getTotalStats();
+
+    // 更新玩家屬性
+    attack = 10.0 + (stats['attack'] ?? 0);
+    defense = 5.0 + (stats['defense'] ?? 0);
+    speed = 10.0 + (stats['speed'] ?? 0);
+
+    // 更新最大生命值和魔力值
+    final newMaxHealth = 100 + (stats['maxHealth'] ?? 0).toInt();
+    final healthDiff = newMaxHealth - maxHealth;
+    maxHealth = newMaxHealth;
+    if (healthDiff > 0) {
+      currentHealth += healthDiff; // 增加當前生命值
+    }
+
+    final newMaxMana = 100 + (stats['maxMana'] ?? 0).toInt();
+    final manaDiff = newMaxMana - maxMana;
+    maxMana = newMaxMana;
+    if (manaDiff > 0) {
+      currentMana += manaDiff; // 增加當前魔力值
     }
   }
 

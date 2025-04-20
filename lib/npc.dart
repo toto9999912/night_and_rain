@@ -29,6 +29,8 @@ class NPC extends PositionComponent {
 
   // NPC外觀和類型
   final String type; // villager, merchant, guard
+  final String id; // NPC的唯一ID
+  final String name; // NPC的名稱
   final Color color;
   final double npcSize;
 
@@ -40,8 +42,18 @@ class NPC extends PositionComponent {
 
   // 互動提示
   bool showInteractionHint = false;
-  late TextComponent _interactionHintText;
   late VisiblePositionComponent _interactionHint;
+
+  // 新增: 問候語顯示
+  late TextComponent _greetingText;
+  late VisiblePositionComponent _greetingComponent;
+  bool showGreeting = false;
+
+  // 新增: 是否允許對話
+  final bool canTalk;
+
+  // 新增: 問候語列表
+  final List<String> greetings;
 
   NPC({
     required Vector2 initialPosition,
@@ -50,7 +62,14 @@ class NPC extends PositionComponent {
     required this.dialogues,
     required this.collisionCheck,
     this.npcSize = 20.0,
+    String? id,
+    String? name,
+    this.canTalk = true, // 預設可以對話
+    List<String>? greetings, // 可自訂問候語
   }) : startPosition = initialPosition.clone(),
+       id = id ?? '${type}_${math.Random().nextInt(10000)}',
+       name = name ?? type.substring(0, 1).toUpperCase() + type.substring(1),
+       greetings = greetings ?? ['你好!', '早安!', '日安!'],
        super(
          position: initialPosition,
          size: Vector2.all(npcSize),
@@ -91,22 +110,67 @@ class NPC extends PositionComponent {
     );
 
     // 創建互動提示容器，使用 HasVisibility
+    // 創建互動提示容器，使用 HasVisibility
     _interactionHint = VisiblePositionComponent(
       position: Vector2(0, -npcSize / 2 - 15),
       anchor: Anchor.bottomCenter,
     )..add(
-      _interactionHintText = TextComponent(
+      TextComponent(
         text: '!',
         textRenderer: TextPaint(
           style: const TextStyle(
             fontSize: 20.0,
             color: Colors.white,
             fontWeight: FontWeight.bold,
+            fontFamily: 'Cubic11',
           ),
         ),
         anchor: Anchor.bottomCenter,
       ),
     );
+    // 創建互動提示容器
+    _interactionHint = VisiblePositionComponent(
+      position: Vector2(0, -npcSize / 2 - 15),
+      anchor: Anchor.bottomCenter,
+    )..add(
+      TextComponent(
+        text: 'E 按下對話',
+        textRenderer: TextPaint(
+          style: const TextStyle(
+            fontSize: 16.0,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Cubic11',
+          ),
+        ),
+        anchor: Anchor.bottomCenter,
+      ),
+    );
+    // 初始為隱藏
+    _interactionHint.isVisible = false;
+    add(_interactionHint);
+
+    // 新增: 創建問候語容器
+    _greetingComponent = VisiblePositionComponent(
+      position: Vector2(0, -npcSize / 2 - 40),
+      anchor: Anchor.bottomCenter,
+    )..add(
+      _greetingText = TextComponent(
+        text: getRandomGreeting(),
+        textRenderer: TextPaint(
+          style: const TextStyle(
+            fontSize: 14.0,
+            color: Colors.white,
+            backgroundColor: Color(0x88000000),
+          ),
+        ),
+        anchor: Anchor.bottomCenter,
+      ),
+    );
+
+    // 初始為隱藏
+    _greetingComponent.isVisible = false;
+    add(_greetingComponent);
 
     // 初始為隱藏
     _interactionHint.isVisible = false;
@@ -117,7 +181,24 @@ class NPC extends PositionComponent {
 
   // 設置互動提示的顯示狀態
   void setInteractionHintVisible(bool visible) {
-    _interactionHint.isVisible = visible;
+    if (canTalk) {
+      _interactionHint.isVisible = visible;
+    }
+  }
+
+  // 新增: 設置問候語的顯示狀態
+  void setGreetingVisible(bool visible) {
+    if (visible && !_greetingComponent.isVisible) {
+      // 每次顯示時更新問候語
+      _greetingText.text = getRandomGreeting();
+    }
+    _greetingComponent.isVisible = visible;
+  }
+
+  // 新增: 獲取隨機問候語
+  String getRandomGreeting() {
+    final random = math.Random();
+    return greetings[random.nextInt(greetings.length)];
   }
 
   @override
@@ -211,7 +292,9 @@ class NPCFactory {
       type: 'villager',
       color: Colors.green[700]!,
       dialogues: ['今天天氣真好啊！', '你好，旅行者！', '我家在村子的東邊。', '這個村子最近很和平。'],
+      greetings: ['早安！', '今天真好！', '你好啊！'],
       collisionCheck: collisionCheck,
+      canTalk: true,
     );
   }
 
@@ -224,8 +307,10 @@ class NPCFactory {
       type: 'merchant',
       color: Colors.amber[800]!,
       dialogues: ['想買些什麼嗎？我有最好的商品！', '特價商品！今天折扣！', '我的貨物來自各地。', '我收購各種裝備和材料。'],
-      npcSize: 25.0, // 商人稍大一些
+      greetings: ['歡迎光臨！', '需要些什麼？', '今日特價！'],
+      npcSize: 25.0,
       collisionCheck: collisionCheck,
+      canTalk: true,
     );
   }
 
@@ -243,8 +328,10 @@ class NPCFactory {
         '有什麼可疑的事情要報告嗎？',
         '村長的房子在北邊，有事找他。',
       ],
-      npcSize: 22.0, // 守衛稍大一些
+      greetings: ['站住！', '一切正常？', '注意安全。'],
+      npcSize: 22.0,
       collisionCheck: collisionCheck,
+      canTalk: true,
     );
   }
 }

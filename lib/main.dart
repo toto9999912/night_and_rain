@@ -12,6 +12,7 @@ import 'bullet.dart';
 import 'npc.dart';
 import 'player.dart';
 import 'ui/health_mana_hud.dart';
+import 'ui/hotkeys_hud.dart'; // 添加 hotkeys_hud 導入
 import 'village_map.dart';
 import 'screens/main_menu_screen.dart';
 
@@ -32,7 +33,7 @@ class NightAndRainApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Night and Rain',
       theme: ThemeData(
-        fontFamily: 'Pixel',
+        fontFamily: 'Cubic11',
         scaffoldBackgroundColor: Colors.black,
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.blue,
@@ -52,6 +53,7 @@ class NightAndRainGame extends FlameGame
   late final Player player;
   late final CameraComponent cameraComponent;
   late final GameWorld gameWorld;
+  late final HotkeysHud hotkeysHud; // 添加快捷鍵 HUD 引用
 
   // 設置
   final Vector2 mapSize = Vector2(3000, 3000);
@@ -101,6 +103,10 @@ class NightAndRainGame extends FlameGame
     // 創建UI層，固定位置，不會隨著相機移動
     uiLayer = Component(priority: 100);
     add(uiLayer);
+
+    // 創建并添加快捷鍵 HUD
+    hotkeysHud = HotkeysHud();
+    cameraComponent.viewport.add(hotkeysHud);
   }
 
   @override
@@ -114,8 +120,33 @@ class NightAndRainGame extends FlameGame
       return KeyEventResult.handled;
     }
 
-    // 只有當背包未打開時才處理移動和射擊
-    if (!player.inventoryUI.isVisible) {
+    // 處理「c」鍵打開/關閉角色面板
+    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.keyC) {
+      player.toggleCharacterPanel();
+      return KeyEventResult.handled;
+    }
+
+    // 處理數字鍵 1-4 快捷鍵
+    if (event is KeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.digit1) {
+        hotkeysHud.useHotkey(0);
+        return KeyEventResult.handled;
+      } else if (event.logicalKey == LogicalKeyboardKey.digit2) {
+        hotkeysHud.useHotkey(1);
+        return KeyEventResult.handled;
+      } else if (event.logicalKey == LogicalKeyboardKey.digit3) {
+        hotkeysHud.useHotkey(2);
+        return KeyEventResult.handled;
+      } else if (event.logicalKey == LogicalKeyboardKey.digit4) {
+        hotkeysHud.useHotkey(3);
+        return KeyEventResult.handled;
+      }
+    }
+
+    // 只有當背包、角色面板和對話系統未打開時才處理移動和射擊
+    if (!player.inventoryUI.isVisible &&
+        !player.characterPanel.isVisible &&
+        !player.dialogueSystem.isVisible) {
       player.updateMovement(keysPressed);
 
       // 空格鍵射擊
@@ -126,6 +157,10 @@ class NightAndRainGame extends FlameGame
           event.logicalKey == LogicalKeyboardKey.space) {
         player.stopShooting();
       }
+    } else {
+      // 如果UI打開中，則停止角色移動和射擊
+      player.direction = Vector2.zero();
+      player.stopShooting();
     }
 
     return KeyEventResult.handled;

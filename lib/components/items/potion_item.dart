@@ -1,5 +1,6 @@
 import '../../player.dart';
 import '../enums/item_type.dart';
+import '../enums/item_rarity.dart';
 import 'item.dart';
 
 /// 藥水物品類
@@ -21,6 +22,8 @@ class PotionItem extends Item {
     super.quantity,
     super.rarity,
     super.iconPath,
+    super.spriteX = 0, // 預設使用精靈圖第一個位置
+    super.spriteY = 1, // 藥水預設使用第二列
   }) : super(type: ItemType.potion);
 
   @override
@@ -74,6 +77,50 @@ class PotionItem extends Item {
       quantity: quantity ?? this.quantity,
       rarity: rarity,
       iconPath: iconPath,
+      spriteX: spriteX,
+      spriteY: spriteY,
+    );
+  }
+
+  /// 創建預設的健康藥水
+  static PotionItem createHealthPotion({
+    required String id,
+    required String name,
+    required String description,
+    required int healthRestored,
+    int quantity = 1,
+    ItemRarity rarity = ItemRarity.common,
+  }) {
+    return PotionItem(
+      id: id,
+      name: name,
+      description: description,
+      healthRestored: healthRestored,
+      quantity: quantity,
+      rarity: rarity,
+      spriteX: 0, // 紅色藥水
+      spriteY: 1,
+    );
+  }
+
+  /// 創建預設的魔法藥水
+  static PotionItem createManaPotion({
+    required String id,
+    required String name,
+    required String description,
+    required int manaRestored,
+    int quantity = 1,
+    ItemRarity rarity = ItemRarity.common,
+  }) {
+    return PotionItem(
+      id: id,
+      name: name,
+      description: description,
+      manaRestored: manaRestored,
+      quantity: quantity,
+      rarity: rarity,
+      spriteX: 1, // 藍色藥水
+      spriteY: 1,
     );
   }
 }

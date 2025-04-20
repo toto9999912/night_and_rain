@@ -82,6 +82,13 @@ class Inventory {
     }
   }
 
+  /// 從背包中移除指定索引的物品
+  bool removeItemAt(int index) {
+    if (index < 0 || index >= items.length) return false;
+    items.removeAt(index);
+    return true;
+  }
+
   /// 使用指定位置的物品
   bool useItem(int index) {
     if (index < 0 || index >= items.length) return false;

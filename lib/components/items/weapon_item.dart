@@ -18,6 +18,8 @@ class WeaponItem extends Item {
     required this.weapon,
     super.rarity,
     super.iconPath,
+    super.spriteX = 0, // 預設使用精靈圖第一個位置
+    super.spriteY = 0,
   }) : super(type: ItemType.weapon, maxStackSize: 1);
 
   @override
@@ -62,6 +64,8 @@ class WeaponItem extends Item {
       weapon: pistol,
       rarity: rarity,
       iconPath: 'assets/images/weapons/pistol.png',
+      spriteX: 0, // 使用精靈圖的第一個位置
+      spriteY: 0,
     );
   }
 
@@ -74,6 +78,8 @@ class WeaponItem extends Item {
       weapon: shotgun,
       rarity: rarity,
       iconPath: 'assets/images/weapons/shotgun.png',
+      spriteX: 1, // 使用精靈圖的第二個位置
+      spriteY: 0,
     );
   }
 
@@ -86,6 +92,8 @@ class WeaponItem extends Item {
       weapon: machineGun,
       rarity: rarity,
       iconPath: 'assets/images/weapons/machinegun.png',
+      spriteX: 2, // 使用精靈圖的第三個位置
+      spriteY: 0,
     );
   }
 }
