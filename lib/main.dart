@@ -115,20 +115,29 @@ class NightAndRainGame extends FlameGame
     add(uiLayer);
   }
 
-  // 處理鍵盤輸入
   @override
   KeyEventResult onKeyEvent(
     KeyEvent event,
     Set<LogicalKeyboardKey> keysPressed,
   ) {
-    player.updateMovement(keysPressed);
+    // 處理「i」鍵打開/關閉背包
+    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.keyI) {
+      player.toggleInventory();
+      return KeyEventResult.handled;
+    }
 
-    // 空格鍵射擊
-    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.space) {
-      player.shoot();
-    } else if (event is KeyUpEvent &&
-        event.logicalKey == LogicalKeyboardKey.space) {
-      player.stopShooting();
+    // 只有當背包未打開時才處理移動和射擊
+    if (!player.inventoryUI.isVisible) {
+      player.updateMovement(keysPressed);
+
+      // 空格鍵射擊
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.space) {
+        player.shoot();
+      } else if (event is KeyUpEvent &&
+          event.logicalKey == LogicalKeyboardKey.space) {
+        player.stopShooting();
+      }
     }
 
     return KeyEventResult.handled;

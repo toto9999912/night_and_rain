@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'main.dart';
 import 'npc.dart';
 import 'weapon.dart';
+import 'items/inventory.dart';
+import 'items/item.dart';
 
 /// 定義角色動畫狀態
 enum PlayerState { idle, walking, dead }
@@ -55,6 +57,11 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
   Weapon get currentWeapon => weapons[currentWeaponIndex];
   TextComponent? weaponInfoText;
 
+  // =========== 背包系統 ===========
+  late Inventory inventory;
+  late InventoryUI inventoryUI;
+  bool isInventoryVisible = false;
+
   // =========== NPC互動系統 ===========
   NPC? interactingNPC;
   bool canInteract = false;
@@ -74,7 +81,58 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
     _setupWeaponIndicator();
     _setupDialogueBox();
     _initWeapons();
+    _initInventory();
     await super.onLoad();
+  }
+
+  void _initInventory() {
+    // 創建背包實例
+    inventory = Inventory(player: this);
+
+    // 創建背包UI
+    inventoryUI = InventoryUI(inventory: inventory);
+
+    // Instead of adding to game directly, add to the viewport
+    game.cameraComponent.viewport.add(inventoryUI);
+
+    // 添加一些初始物品到背包
+    _addStartingItems();
+  }
+
+  /// 添加初始物品到背包
+  void _addStartingItems() {
+    // 添加藥水物品
+    final healthPotion = PotionItem(
+      id: 'health_potion_small',
+      name: '小型治療藥水',
+      description: '恢復25點生命值',
+      healthRestored: 25,
+      quantity: 3,
+      rarity: ItemRarity.common,
+    );
+
+    final manaPotion = PotionItem(
+      id: 'mana_potion_small',
+      name: '小型魔法藥水',
+      description: '恢復25點魔力值',
+      manaRestored: 25,
+      quantity: 3,
+      rarity: ItemRarity.common,
+    );
+
+    // 添加武器物品 - 這些武器只是示例，玩家已有三種基本武器
+    final pistolItem = WeaponItem(
+      id: 'weapon_pistol',
+      name: '新手手槍',
+      description: '基本的手槍，適合初學者使用',
+      weapon: Pistol(),
+      rarity: ItemRarity.common,
+    );
+
+    // 添加到背包
+    inventory.addItem(healthPotion);
+    inventory.addItem(manaPotion);
+    inventory.addItem(pistolItem);
   }
 
   /// 載入角色動畫
@@ -310,6 +368,12 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
   void updateMovement(Set<LogicalKeyboardKey> keysPressed) {
     if (isDead) return;
 
+    // 如果背包是開著的，禁用移動
+    if (inventoryUI.isVisible) {
+      direction = Vector2.zero();
+      return;
+    }
+
     direction = Vector2.zero();
 
     // 移動控制
@@ -337,6 +401,11 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
     // 互動控制
     if (keysPressed.contains(LogicalKeyboardKey.keyE)) {
       attemptInteraction();
+    }
+
+    // 背包控制
+    if (keysPressed.contains(LogicalKeyboardKey.keyI)) {
+      toggleInventory();
     }
 
     // 武器切換
@@ -374,6 +443,11 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
 
   void shoot() {
     if (!isDead && currentMana >= getCurrentWeaponManaCost()) {
+      // 直接嘗試射擊
+      if (currentWeapon.shoot(position, weaponAngle, game)) {
+        useMana(getCurrentWeaponManaCost());
+      }
+      // 同時設置持續射擊狀態，用於長按
       isShooting = true;
     } else {
       showManaWarning();
@@ -389,6 +463,42 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
       MachineGun() => 3,
       _ => 5,
     };
+  }
+
+  // =========== 背包系統 ===========
+
+  /// 切換背包顯示狀態
+  void toggleInventory() {
+    inventoryUI.toggle();
+    // 當背包開啟時，停止移動和射擊
+    if (inventoryUI.isVisible) {
+      isShooting = false;
+      velocity = Vector2.zero();
+      direction = Vector2.zero();
+    }
+  }
+
+  /// 使用背包中的物品
+  bool useInventoryItem(int index) {
+    return inventory.useItem(index);
+  }
+
+  /// 撿起物品（未來可以擴展為查找地面上的物品）
+  bool pickupItem(Item item) {
+    final result = inventory.addItem(item);
+    if (result) {
+      // 在此處可以添加撿起物品的視覺/音效反饋
+    }
+    return result;
+  }
+
+  /// 丟棄物品
+  bool dropItem(String itemId, {int quantity = 1}) {
+    final result = inventory.removeItem(itemId, quantity: quantity);
+    if (result) {
+      // 在此處可以添加丟棄物品的視覺/音效反饋
+    }
+    return result;
   }
 
   // =========== NPC互動 ===========
