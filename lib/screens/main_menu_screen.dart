@@ -1,3 +1,4 @@
+import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'scenario_selection_screen.dart';
@@ -84,7 +85,9 @@ class _MainMenuScreenState extends State<MainMenuScreen>
               const SizedBox(height: 20),
               _buildMenuButton('特別企劃', () {
                 Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => const GameScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => GameWidget(game: NightAndRainGame()),
+                  ),
                 );
               }),
 
@@ -108,7 +111,7 @@ class _MainMenuScreenState extends State<MainMenuScreen>
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-        backgroundColor: Colors.blue.withOpacity(0.6),
+        backgroundColor: Colors.blue.withValues(alpha: 0.6),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
           side: const BorderSide(color: Colors.white70, width: 2),
@@ -130,7 +133,7 @@ class _MainMenuScreenState extends State<MainMenuScreen>
       context: context,
       builder:
           (context) => AlertDialog(
-            backgroundColor: Colors.blue.shade900.withOpacity(0.9),
+            backgroundColor: Colors.blue.shade900.withValues(alpha: 0.9),
             title: const Text(
               '成就列表',
               style: TextStyle(color: Colors.white, fontSize: 24),
@@ -141,9 +144,13 @@ class _MainMenuScreenState extends State<MainMenuScreen>
               child: ListView(
                 shrinkWrap: true,
                 children: [
-                  _buildAchievement('初次冒險', '完成第一次遊戲', false),
-                  _buildAchievement('村莊守護者', '消滅100個敵人', false),
-                  _buildAchievement('收集大師', '找到所有隱藏物品', false),
+                  _buildAchievement('音癡?歌神?', '你成功偷錄下來夜唱的歌，他會恨你一輩子', false),
+                  _buildAchievement(
+                    '夜不在深，有燈則明',
+                    '你居然在遊戲中實踐了發光體(他一定上輩子造孽，否則怎麼會認識妳這個大冤種)',
+                    false,
+                  ),
+                  _buildAchievement('重來一次，還是選妳!', '他固然有他的旅程，但若無妳，', false),
                   _buildAchievement('交際能手', '與所有NPC對話', false),
                   _buildAchievement('大冒險家', '探索完整個地圖', false),
                 ],

@@ -11,6 +11,7 @@ import 'package:flame/flame.dart';
 import 'bullet.dart';
 import 'npc.dart';
 import 'player.dart';
+import 'ui/health_mana_hud.dart';
 import 'village_map.dart';
 import 'screens/main_menu_screen.dart';
 
@@ -29,7 +30,7 @@ class NightAndRainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: '夜與雨',
+      title: 'Night and Rain',
       theme: ThemeData(
         fontFamily: 'Pixel',
         scaffoldBackgroundColor: Colors.black,
@@ -41,19 +42,6 @@ class NightAndRainApp extends StatelessWidget {
       ),
       home: const MainMenuScreen(),
     );
-  }
-}
-
-/// 遊戲畫面 - 集成了所有遊戲元素的主要組件
-class GameScreen extends StatelessWidget {
-  final String? scenarioId;
-
-  const GameScreen({super.key, this.scenarioId});
-
-  @override
-  Widget build(BuildContext context) {
-    print('正在載入劇本：$scenarioId');
-    return GameWidget(game: NightAndRainGame());
   }
 }
 
