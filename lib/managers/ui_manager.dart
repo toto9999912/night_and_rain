@@ -24,7 +24,7 @@ class UIManager {
     game.add(uiLayer);
 
     // 添加健康魔法值HUD
-    final healthManaHud = HealthManaHud();
+    final healthManaHud = HealthManaHud(player: game.player);
     game.cameraComponent.viewport.add(healthManaHud);
 
     // 創建并添加快捷鍵 HUD
@@ -50,7 +50,14 @@ class UIManager {
 
     _messageComponent = TextComponent(
       text: message,
-      textRenderer: TextPaint(style: const TextStyle(fontSize: 16, color: Colors.white, backgroundColor: Color(0x99000000), fontFamily: 'Cubic11')),
+      textRenderer: TextPaint(
+        style: const TextStyle(
+          fontSize: 16,
+          color: Colors.white,
+          backgroundColor: Color(0x99000000),
+          fontFamily: 'Cubic11',
+        ),
+      ),
       anchor: Anchor.topCenter,
       position: Vector2(game.size.x / 2, 50),
     );

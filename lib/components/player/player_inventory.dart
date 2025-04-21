@@ -144,8 +144,20 @@ class PlayerInventory {
         dialogueSystem.closeDialogue();
       }
 
-      inventoryUI.toggle();
-      return getSafeController()?.isVisible ?? false;
+      // 使用安全方法獲取控制器
+      InventoryUIController? controller = getSafeController();
+      if (controller != null) {
+        // 直接操作控制器狀態，而不是通過UI組件調用
+        if (controller.isVisible) {
+          controller.close();
+        } else {
+          controller.open();
+        }
+        return controller.isVisible;
+      } else {
+        print("【UI警告】無法安全獲取背包控制器，操作被取消");
+        return false;
+      }
     } catch (e) {
       print("【UI錯誤】切換背包顯示狀態時發生錯誤: $e");
       return false;

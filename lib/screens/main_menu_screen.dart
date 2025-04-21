@@ -2,6 +2,7 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'scenario_selection_screen.dart';
+import 'loading_screen.dart';
 import '../main.dart'; // 導入 GameScreen
 
 class MainMenuScreen extends StatefulWidget {
@@ -86,7 +87,7 @@ class _MainMenuScreenState extends State<MainMenuScreen>
               _buildMenuButton('特別企劃', () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) => GameWidget(game: NightAndRainGame()),
+                    builder: (context) => const LoadingScreen(),
                   ),
                 );
               }),

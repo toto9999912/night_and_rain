@@ -3,6 +3,8 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'package:night_and_rain/main.dart';
 
+import '../player.dart';
+
 /// HUD Component：顯示血條與魔力條
 class HealthManaHud extends PositionComponent
     with HasGameReference<NightAndRainGame> {
@@ -11,12 +13,15 @@ class HealthManaHud extends PositionComponent
   static const double barHeight = 15.0;
   static const double spacing = 5.0;
 
+  // 玩家引用
+  final Player player;
+
   // 畫筆
   final Paint _bgPaint = Paint()..color = const Color(0xFF333333);
   final Paint _hpPaint = Paint()..color = Colors.green;
   final Paint _spPaint = Paint()..color = Colors.blue;
 
-  HealthManaHud() {
+  HealthManaHud({required this.player}) {
     // 設定在畫布左上角
     position = Vector2(10, 10);
     // 高度：兩條加間距
@@ -27,7 +32,6 @@ class HealthManaHud extends PositionComponent
   void render(Canvas canvas) {
     super.render(canvas);
 
-    final player = game.player;
     final hpRatio = player.currentHealth / player.maxHealth;
     final spRatio = player.currentMana / player.maxMana;
 

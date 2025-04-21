@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flame/components.dart';
@@ -7,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flame/flame.dart';
 
-import 'bullet.dart';
 import 'npc.dart';
 import 'player.dart';
 import 'ui/health_mana_hud.dart';
@@ -15,7 +13,6 @@ import 'ui/hotkeys_hud.dart';
 import 'ui/current_weapon_hud.dart';
 import 'village_map.dart';
 import 'screens/main_menu_screen.dart';
-import 'models/enums.dart';
 
 // 引入新創建的管理器和系統類
 import 'managers/input_manager.dart';
@@ -43,7 +40,10 @@ class NightAndRainApp extends StatelessWidget {
       theme: ThemeData(
         fontFamily: 'Cubic11',
         scaffoldBackgroundColor: Colors.black,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+          brightness: Brightness.dark,
+        ),
         useMaterial3: true,
       ),
       home: const MainMenuScreen(),
@@ -52,12 +52,14 @@ class NightAndRainApp extends StatelessWidget {
 }
 
 /// 主遊戲類 - 現在只做頂層協調，實際功能由各個管理器和系統實現
-class NightAndRainGame extends FlameGame with KeyboardEvents, MouseMovementDetector, TapDetector {
+class NightAndRainGame extends FlameGame
+    with KeyboardEvents, MouseMovementDetector, TapDetector {
   // 主要遊戲元素
   late final Player player;
   late final CameraComponent cameraComponent;
   late final GameWorld gameWorld;
   late final HotkeysHud hotkeysHud; // 仍需要保留，因為很多地方引用
+  late final HealthManaHud healthManaHud; // 添加生命值與魔法值HUD引用
 
   // 設置
   final Vector2 mapSize = Vector2(3000, 3000);
@@ -70,94 +72,155 @@ class NightAndRainGame extends FlameGame with KeyboardEvents, MouseMovementDetec
   // 標記UI是否已初始化
   bool _uiInitialized = false;
 
+  // 標記遊戲是否準備好
+  bool _isReady = false;
+  bool get isReady => _isReady;
+
+  // 初始化階段
+  int _initStage = 0;
+
   @override
   Future<void> onLoad() async {
-    // 1. 基礎遊戲元素設置
-    await _setupGameWorld();
-    await _setupCamera();
+    print("遊戲初始化開始...");
 
-    // 2. 設置管理器，但不初始化HUD
-    await _setupManagersCore();
+    // 設置初始載入階段
+    _initStage = 1;
 
-    // 3. 玩家初始化（但不載入UI元素）
-    await _setupPlayer();
-    player.combat.initWeapons();
+    try {
+      // 階段 1: 基礎遊戲元素設置
+      await _setupGameWorld();
+      _initStage = 2;
 
-    // 4. 在main onLoad完成前調用super.onLoad()
-    await super.onLoad();
+      // 階段 2: 設置玩家
+      await _setupPlayer();
+      player.combat.initWeapons();
+      _initStage = 3;
 
-    // 5. 完成玩家和HUD完整初始化
-    await _initializePlayerUIComponents();
+      // 階段 3: 設置相機
+      await _setupCamera();
+      _initStage = 4;
 
-    // 6. 初始化熱鍵和武器HUD
-    await _initializeHotkeys();
+      // 階段 4: 設置核心管理器
+      await _setupManagersCore();
+      _initStage = 5;
 
-    // 設置標記
-    _uiInitialized = true;
+      // 階段 5: 調用 super.onLoad()
+      await super.onLoad();
+      _initStage = 6;
 
-    print("遊戲初始化完成");
+      // 階段 6: 初始化玩家UI組件
+      await _initializePlayerUIComponents();
+      _initStage = 7;
+
+      // 階段 7: 初始化熱鍵和武器HUD
+      await _initializeHotkeys();
+      _initStage = 8;
+
+      // 階段 8: 初始化生命值與魔法值HUD
+      await _initializeHealthManaHud();
+      _initStage = 9;
+
+      // 設置標記
+      _uiInitialized = true;
+      _isReady = true;
+
+      print("遊戲初始化完成，所有系統已就緒");
+    } catch (e) {
+      print("遊戲初始化失敗(階段 $_initStage): $e");
+      rethrow;
+    }
   }
 
   /// 核心管理器設置 - 不包含需要玩家引用的部分
   Future<void> _setupManagersCore() async {
+    print("設置核心管理器...");
     inputManager = InputManager(this);
     uiManager = UIManager(this);
+    print("核心管理器設置完成");
   }
 
   /// 設置遊戲世界和所有地圖相關組件
   Future<void> _setupGameWorld() async {
+    print("設置遊戲世界...");
     gameWorld = GameWorld(mapSize);
-    add(gameWorld);
+    await add(gameWorld);
+    print("遊戲世界設置完成");
   }
 
   /// 設置玩家角色
   Future<void> _setupPlayer() async {
+    print("設置玩家角色...");
     player = Player(mapSize);
     gameWorld.add(player);
-    // 注意：這裡不調用player.inventory.prepareUIComponents()
+    print("玩家角色設置完成");
   }
 
   /// 設置遊戲相機
   Future<void> _setupCamera() async {
-    cameraComponent = CameraComponent(world: gameWorld)..viewfinder.anchor = Anchor.center;
-    add(cameraComponent);
+    print("設置遊戲相機...");
+    cameraComponent = CameraComponent(world: gameWorld)
+      ..viewfinder.anchor = Anchor.center;
+    await add(cameraComponent);
     cameraComponent.follow(player);
+    print("遊戲相機設置完成");
   }
 
   /// 完整初始化玩家UI組件
   Future<void> _initializePlayerUIComponents() async {
-    print("開始初始化玩家UI組件");
-    // 準備UI組件
-    player.inventory.initInventory();
-    player.inventory.initEquipment();
-    player.inventory.prepareUIComponents();
+    print("開始初始化玩家UI組件...");
+    try {
+      // 準備UI組件
+      player.inventory.initInventory();
+      player.inventory.initEquipment();
+      player.inventory.prepareUIComponents();
 
-    // 添加UI組件到遊戲，並等待其完成
-    await player.inventory.addUIComponentsToGame();
-    print("玩家UI組件初始化完成");
+      // 添加UI組件到遊戲，並等待其完成
+      await player.inventory.addUIComponentsToGame();
+      print("玩家UI組件初始化完成");
+    } catch (e) {
+      print("初始化玩家UI組件時發生錯誤: $e");
+      rethrow;
+    }
   }
 
   /// 初始化熱鍵和武器HUD
   Future<void> _initializeHotkeys() async {
-    print("初始化熱鍵系統");
-    // 初始化熱鍵系統
-    hotkeysHud = HotkeysHud();
-    await add(hotkeysHud);
+    print("初始化熱鍵系統...");
+    try {
+      // 初始化熱鍵系統
+      hotkeysHud = HotkeysHud();
+      await add(hotkeysHud);
 
-    // 初始化當前武器顯示
-    CurrentWeaponHud currentWeaponHud = CurrentWeaponHud();
-    await add(currentWeaponHud);
+      // 初始化當前武器顯示
+      CurrentWeaponHud currentWeaponHud = CurrentWeaponHud();
+      await add(currentWeaponHud);
 
-    // 設置玩家武器變更事件通知
-    player.onWeaponsChanged = () {
-      // 當玩家武器清單發生變化時更新熱鍵系統
+      // 設置玩家武器變更事件通知
+      player.onWeaponsChanged = () {
+        // 當玩家武器清單發生變化時更新熱鍵系統
+        hotkeysHud.updateWeaponReferences();
+      };
+
+      // 初始設置熱鍵槽位
       hotkeysHud.updateWeaponReferences();
-    };
+      print("熱鍵系統初始化完成");
+    } catch (e) {
+      print("初始化熱鍵系統時發生錯誤: $e");
+      rethrow;
+    }
+  }
 
-    // 初始設置熱鍵槽位
-    hotkeysHud.updateWeaponReferences();
-
-    print("熱鍵系統初始化完成");
+  /// 初始化生命值與魔法值HUD
+  Future<void> _initializeHealthManaHud() async {
+    print("初始化生命值與魔法值HUD...");
+    try {
+      healthManaHud = HealthManaHud(player: player);
+      await add(healthManaHud);
+      print("生命值與魔法值HUD初始化完成");
+    } catch (e) {
+      print("初始化生命值與魔法值HUD時發生錯誤: $e");
+      rethrow;
+    }
   }
 
   /// 顯示一條消息在螢幕上 - 代理到UI管理器
@@ -166,7 +229,10 @@ class NightAndRainGame extends FlameGame with KeyboardEvents, MouseMovementDetec
   }
 
   @override
-  KeyEventResult onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
+  KeyEventResult onKeyEvent(
+    KeyEvent event,
+    Set<LogicalKeyboardKey> keysPressed,
+  ) {
     return inputManager.handleKeyEvent(event, keysPressed);
   }
 
@@ -190,7 +256,9 @@ class NightAndRainGame extends FlameGame with KeyboardEvents, MouseMovementDetec
   @override
   void update(double dt) {
     super.update(dt);
-    uiManager.update(dt);
+    if (_isReady) {
+      uiManager.update(dt);
+    }
   }
 }
 
@@ -242,13 +310,30 @@ class GameWorld extends World {
   }
 
   /// 添加子彈到遊戲世界 - 代理到子彈管理器
-  void addBullet(Vector2 position, Vector2 direction, double speed, double damage, {Color? bulletColor, Vector2? bulletSize}) {
-    final bullet = bulletManager.createBullet(position, direction, speed, damage, bulletColor: bulletColor, bulletSize: bulletSize);
+  void addBullet(
+    Vector2 position,
+    Vector2 direction,
+    double speed,
+    double damage, {
+    Color? bulletColor,
+    Vector2? bulletSize,
+  }) {
+    final bullet = bulletManager.createBullet(
+      position,
+      direction,
+      speed,
+      damage,
+      bulletColor: bulletColor,
+      bulletSize: bulletSize,
+    );
     add(bullet);
   }
 
   /// 與最近的NPC互動 - 代理到NPC管理器
-  NPC? interactWithNearestNPC(Vector2 playerPosition, {double maxDistance = 50.0}) {
+  NPC? interactWithNearestNPC(
+    Vector2 playerPosition, {
+    double maxDistance = 50.0,
+  }) {
     return npcManager.findNearestNPC(playerPosition, maxDistance: maxDistance);
   }
 

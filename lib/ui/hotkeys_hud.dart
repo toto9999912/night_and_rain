@@ -22,17 +22,29 @@ class HotkeyItem {
   final String name;
   final Color color;
 
-  HotkeyItem.weapon(this.item, this.weaponIndex, {this.name = '', Color? color}) : type = HotkeyItemType.weapon, color = color ?? Colors.blue;
+  HotkeyItem.weapon(this.item, this.weaponIndex, {this.name = '', Color? color})
+    : type = HotkeyItemType.weapon,
+      color = color ?? Colors.blue;
 
-  HotkeyItem.consumable(Item this.item) : type = HotkeyItemType.consumable, weaponIndex = null, name = item.name, color = item.rarityColor;
+  HotkeyItem.consumable(Item this.item)
+    : type = HotkeyItemType.consumable,
+      weaponIndex = null,
+      name = item.name,
+      color = item.rarityColor;
 
-  HotkeyItem.empty() : type = HotkeyItemType.none, item = null, weaponIndex = null, name = '', color = Colors.grey;
+  HotkeyItem.empty()
+    : type = HotkeyItemType.none,
+      item = null,
+      weaponIndex = null,
+      name = '',
+      color = Colors.grey;
 
   bool get isEmpty => type == HotkeyItemType.none;
 }
 
 /// 快捷鍵 HUD 組件，顯示在畫面上的快捷鍵槽位
-class HotkeysHud extends PositionComponent with HasGameReference<NightAndRainGame> {
+class HotkeysHud extends PositionComponent
+    with HasGameReference<NightAndRainGame> {
   static const double slotSize = 44.0;
   static const double slotSpacing = 6.0;
   static const int hotkeyCount = 4;
@@ -49,16 +61,25 @@ class HotkeysHud extends PositionComponent with HasGameReference<NightAndRainGam
   // 武器和物品的精靈圖
   SpriteSheet? _spriteSheet;
 
+  // 標記是否為第一次更新
+  bool _firstUpdate = true;
+
   HotkeysHud() : super(priority: 10) {
     // 設定在畫面底部
-    size = Vector2((slotSize + slotSpacing) * hotkeyCount - slotSpacing, slotSize);
+    size = Vector2(
+      (slotSize + slotSpacing) * hotkeyCount - slotSpacing,
+      slotSize,
+    );
   }
 
   @override
   Future<void> onLoad() async {
     try {
       // 根據螢幕尺寸調整位置，放在畫面底部中央
-      position = Vector2(game.size.x / 2 - size.x / 2, game.size.y - slotSize - 20);
+      position = Vector2(
+        game.size.x / 2 - size.x / 2,
+        game.size.y - slotSize - 20,
+      );
 
       // 載入物品精靈圖表
       await _loadSpriteSheet();
@@ -117,10 +138,16 @@ class HotkeysHud extends PositionComponent with HasGameReference<NightAndRainGam
 
     // 繪製背景
     final bgRect = Rect.fromLTWH(0, 0, size.x, size.y);
-    canvas.drawRRect(RRect.fromRectAndRadius(bgRect, const Radius.circular(10)), bgPaint);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bgRect, const Radius.circular(10)),
+      bgPaint,
+    );
 
     // 繪製邊框
-    canvas.drawRRect(RRect.fromRectAndRadius(bgRect, const Radius.circular(10)), borderPaint);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bgRect, const Radius.circular(10)),
+      borderPaint,
+    );
 
     // 繪製每個快捷鍵槽位
     for (int i = 0; i < hotkeyCount; i++) {
@@ -132,7 +159,14 @@ class HotkeysHud extends PositionComponent with HasGameReference<NightAndRainGam
       // 移除選中槽位高亮的繪製邏輯
 
       // 繪製槽位號碼
-      _drawText(canvas, '${i + 1}', Vector2(x + slotSize - 8, 8), align: TextAlign.right, fontSize: 14, bold: true);
+      _drawText(
+        canvas,
+        '${i + 1}',
+        Vector2(x + slotSize - 8, 8),
+        align: TextAlign.right,
+        fontSize: 14,
+        bold: true,
+      );
 
       // 如果有綁定物品，繪製相應信息
       final hotkey = hotkeys[i];
@@ -159,7 +193,14 @@ class HotkeysHud extends PositionComponent with HasGameReference<NightAndRainGam
             // 繪製武器圖示
             final weaponSprite = _spriteSheet!.getSprite(spriteX, spriteY);
             final iconSize = slotSize * 0.7;
-            weaponSprite.render(canvas, position: Vector2(x + (slotSize - iconSize) / 2, (slotSize - iconSize) / 2), size: Vector2.all(iconSize));
+            weaponSprite.render(
+              canvas,
+              position: Vector2(
+                x + (slotSize - iconSize) / 2,
+                (slotSize - iconSize) / 2,
+              ),
+              size: Vector2.all(iconSize),
+            );
 
             break;
           case HotkeyItemType.consumable:
@@ -167,12 +208,26 @@ class HotkeysHud extends PositionComponent with HasGameReference<NightAndRainGam
             // 如果物品有精靈圖，直接使用
             if (item.sprite != null) {
               final iconSize = slotSize * 0.7;
-              item.sprite!.render(canvas, position: Vector2(x + (slotSize - iconSize) / 2, (slotSize - iconSize) / 2), size: Vector2.all(iconSize));
+              item.sprite!.render(
+                canvas,
+                position: Vector2(
+                  x + (slotSize - iconSize) / 2,
+                  (slotSize - iconSize) / 2,
+                ),
+                size: Vector2.all(iconSize),
+              );
             }
 
             // 如果是可堆疊物品且數量大於1，顯示數量
             if (item.isStackable && item.quantity > 1) {
-              _drawText(canvas, item.quantity.toString(), Vector2(x + slotSize - 8, slotSize - 8), align: TextAlign.right, fontSize: 12, bold: true);
+              _drawText(
+                canvas,
+                item.quantity.toString(),
+                Vector2(x + slotSize - 8, slotSize - 8),
+                align: TextAlign.right,
+                fontSize: 12,
+                bold: true,
+              );
             }
             break;
           case HotkeyItemType.none:
@@ -195,7 +250,14 @@ class HotkeysHud extends PositionComponent with HasGameReference<NightAndRainGam
     double? maxWidth,
   }) {
     final textPainter = TextPainter(
-      text: TextSpan(text: text, style: TextStyle(color: color, fontSize: fontSize, fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: color,
+          fontSize: fontSize,
+          fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
       textAlign: align,
       textDirection: TextDirection.ltr,
     );
@@ -279,13 +341,18 @@ class HotkeysHud extends PositionComponent with HasGameReference<NightAndRainGam
     try {
       for (int i = 0; i < hotkeyCount; i++) {
         final hotkey = hotkeys[i];
-        if (hotkey.type == HotkeyItemType.weapon && hotkey.weaponIndex != null) {
+        if (hotkey.type == HotkeyItemType.weapon &&
+            hotkey.weaponIndex != null) {
           final weaponIndex = hotkey.weaponIndex!;
           if (weaponIndex < player.combat.weapons.length) {
             // 更新武器引用
             final weapon = player.combat.weapons[weaponIndex];
             print("更新熱鍵槽 $i 的武器引用: ${weapon.name}");
-            hotkeys[i] = HotkeyItem.weapon(weapon, weaponIndex, name: weapon.name);
+            hotkeys[i] = HotkeyItem.weapon(
+              weapon,
+              weaponIndex,
+              name: weapon.name,
+            );
           } else {
             // 武器不存在了，清除槽位
             print("清除熱鍵槽 $i，原武器索引 $weaponIndex 超出範圍");
@@ -295,7 +362,8 @@ class HotkeysHud extends PositionComponent with HasGameReference<NightAndRainGam
       }
 
       // 檢查當前選中槽位是否有效，否則重置
-      if (selectedSlot != -1 && (selectedSlot >= hotkeyCount || hotkeys[selectedSlot].isEmpty)) {
+      if (selectedSlot != -1 &&
+          (selectedSlot >= hotkeyCount || hotkeys[selectedSlot].isEmpty)) {
         resetSelectedSlot();
       }
     } catch (e) {
@@ -329,9 +397,8 @@ class HotkeysHud extends PositionComponent with HasGameReference<NightAndRainGam
     super.update(dt);
 
     // 初次更新時初始化熱鍵
-    bool firstUpdate = true;
-    if (firstUpdate) {
-      firstUpdate = false;
+    if (_firstUpdate) {
+      _firstUpdate = false;
       // 延遲初始化，確保player和weapons已準備好
       Future.delayed(Duration(milliseconds: 100), () {
         _initDefaultWeaponHotkeys();
