@@ -19,7 +19,7 @@ class PlayerCombat {
   final int maxWeapons = 5; // 玩家最多可持有的武器數量
 
   // 獲取當前武器的便捷方法
-  Weapon get currentWeapon => weapons[currentWeaponIndex];
+  Weapon? get currentWeapon => weapons.isNotEmpty ? weapons[currentWeaponIndex] : null;
 
   // 參考主玩家實例
   final Player player;
@@ -84,7 +84,7 @@ class PlayerCombat {
     if (isShooting && !isDead) {
       final manaCost = getCurrentWeaponManaCost();
       if (currentMana >= manaCost) {
-        if (currentWeapon.shoot(playerPosition, weaponAngle, game)) {
+        if (currentWeapon?.shoot(playerPosition, weaponAngle, game) ?? false) {
           useMana(manaCost);
         }
       } else {

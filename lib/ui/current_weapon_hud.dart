@@ -70,25 +70,15 @@ class CurrentWeaponHud extends PositionComponent with HasGameReference<NightAndR
     // 更新當前武器對應的熱鍵編號
     weaponHotkeyNumber = _findWeaponHotkey();
 
-    // 如果正在播放切換動畫
-    if (_isAnimating) {
-      _animationProgress += dt * 3; // 控制動畫速度
-
-      if (_animationProgress >= 1) {
-        _animationProgress = 0;
-        _isAnimating = false;
-      }
-    }
-
     // 檢查武器是否已更改
-    if (player.combat.weapons.isNotEmpty && player.currentWeapon.name != _lastWeaponName) {
-      _lastWeaponName = player.currentWeapon.name;
+    if (player.combat.weapons.isNotEmpty && player.currentWeapon != null && player.currentWeapon!.name != _lastWeaponName) {
+      _lastWeaponName = player.currentWeapon!.name;
       _isAnimating = true;
       _animationProgress = 0;
     }
 
     // 檢查武器是否變化，如果變化則啟動動畫
-    if (!_isAnimating && _previousWeapon != game.player.currentWeapon) {
+    if (!_isAnimating && _previousWeapon != player.currentWeapon) {
       _startWeaponChangeAnimation();
     }
 
@@ -98,7 +88,7 @@ class CurrentWeaponHud extends PositionComponent with HasGameReference<NightAndR
       if (_animationProgress >= 1.0) {
         _isAnimating = false;
         _animationProgress = 0.0;
-        _previousWeapon = game.player.currentWeapon;
+        _previousWeapon = player.currentWeapon;
       }
     }
   }
@@ -129,7 +119,7 @@ class CurrentWeaponHud extends PositionComponent with HasGameReference<NightAndR
     super.render(canvas);
 
     // 檢查玩家是否有武器
-    if (player.combat.weapons.isEmpty || _spriteSheet == null) return;
+    if (player.combat.weapons.isEmpty || _spriteSheet == null || player.currentWeapon == null) return;
 
     // 繪製背景
     final bgPaint = Paint()..color = const Color(0xDD333333);
@@ -145,7 +135,7 @@ class CurrentWeaponHud extends PositionComponent with HasGameReference<NightAndR
     canvas.drawRRect(RRect.fromRectAndRadius(bgRect, const Radius.circular(10)), borderPaint);
 
     // 獲取當前武器
-    final currentWeapon = player.currentWeapon;
+    final currentWeapon = player.currentWeapon!; // 我們已經檢查了它不是 null
 
     // 根據武器類型獲取對應圖示
     int spriteX = 0;

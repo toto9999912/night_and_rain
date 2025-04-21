@@ -44,6 +44,12 @@ class PlayerInventory {
 
   /// 準備 UI 組件（創建實例但不添加到組件樹）
   void prepareUIComponents() {
+    // 確保 inventory 和 equipment 在創建 UI 前已經初始化
+    if (!_uiInitialized) {
+      initInventory();
+      initEquipment();
+    }
+
     // 創建背包UI
     inventoryUI = InventoryUI(inventory: inventory, equipment: equipment);
 
@@ -110,13 +116,24 @@ class PlayerInventory {
 
   /// 切換背包顯示狀態
   bool toggleInventory() {
-    // 如果對話框開著，則先關閉
-    if (dialogueSystem.isVisible) {
-      dialogueSystem.closeDialogue();
+    // 安全檢查：如果UI組件尚未初始化，則不執行操作並返回false
+    if (!_uiInitialized) {
+      print("【UI錯誤】嘗試切換背包顯示狀態，但UI組件尚未完全初始化");
+      return false;
     }
 
-    inventoryUI.toggle();
-    return inventoryUI.controller.isVisible;
+    try {
+      // 如果對話框開著，則先關閉
+      if (dialogueSystem.isVisible) {
+        dialogueSystem.closeDialogue();
+      }
+
+      inventoryUI.toggle();
+      return inventoryUI.controller.isVisible;
+    } catch (e) {
+      print("【UI錯誤】切換背包顯示狀態時發生錯誤: $e");
+      return false;
+    }
   }
 
   /// 切換角色面板顯示狀態
@@ -201,5 +218,16 @@ class PlayerInventory {
   }
 
   /// 檢查UI是否開啟
-  bool get isUIVisible => inventoryUI.controller.isVisible || characterPanel.isVisible || dialogueSystem.isVisible;
+  bool get isUIVisible {
+    // 安全檢查：如果UI組件尚未初始化或controller未初始化，則返回false
+    if (!_uiInitialized) return false;
+
+    try {
+      return inventoryUI.controller.isVisible || characterPanel.isVisible || dialogueSystem.isVisible;
+    } catch (e) {
+      // 如果任何UI組件尚未完全初始化，則返回false
+      print("【UI錯誤】UI組件尚未完全初始化: $e");
+      return false;
+    }
+  }
 }

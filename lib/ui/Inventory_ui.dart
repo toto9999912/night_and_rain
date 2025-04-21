@@ -216,19 +216,41 @@ class InventoryUI extends PositionComponent with TapCallbacks, KeyboardHandler, 
   final Color titleColor = Colors.yellow;
   final Color valueColor = Colors.cyan;
 
-  // 控制器
-  late final InventoryUIController controller;
+  // 控制器 - 使用可空類型，並添加一個安全的 getter
+  InventoryUIController? _controller;
+  InventoryUIController get controller {
+    // 如果 _controller 為 null，嘗試創建一個臨時控制器
+    if (_controller == null) {
+      try {
+        print("【警告】嘗試訪問尚未初始化的 controller，創建臨時控制器");
+        _controller = InventoryUIController(game: game, inventory: _inventory, equipment: _equipment);
+      } catch (e) {
+        print("【嚴重錯誤】無法創建臨時控制器: $e");
+        // 返回一個空的控制器作為後備
+        return InventoryUIController(game: game, inventory: _inventory, equipment: _equipment);
+      }
+    }
+    return _controller!;
+  }
 
   // 存儲構造函數傳入的參數，以便在 onLoad 中初始化控制器
   final Inventory _inventory;
   final Equipment _equipment;
 
+  // 標示是否已初始化
+  bool _isInitialized = false;
+
   InventoryUI({required Inventory inventory, required Equipment equipment}) : _inventory = inventory, _equipment = equipment, super(priority: 100);
 
   @override
   Future<void> onLoad() async {
-    // 在 onLoad 中初始化控制器，此時 game 已經可用
-    controller = InventoryUIController(game: game, inventory: _inventory, equipment: _equipment);
+    // 在 onLoad 中初始化控制器，此時 game 應該已經可用
+    try {
+      _controller = InventoryUIController(game: game, inventory: _inventory, equipment: _equipment);
+      _isInitialized = true;
+    } catch (e) {
+      print("【錯誤】初始化 InventoryUIController 失敗: $e");
+    }
 
     // 加載精靈圖
     final spriteSheet = SpriteSheet(image: await Flame.images.load('item_pack.png'), srcSize: Vector2(24, 24));

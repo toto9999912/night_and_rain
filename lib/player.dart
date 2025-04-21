@@ -234,7 +234,7 @@ class Player extends SpriteAnimationGroupComponent<PlayerState> with HasGameRefe
   }
 
   // 获取当前武器
-  Weapon get currentWeapon => combat.currentWeapon;
+  Weapon? get currentWeapon => combat.currentWeapon;
 
   // 公开一些重要属性作为代理
   bool get isDead => combat.isDead;
