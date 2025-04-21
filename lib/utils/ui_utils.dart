@@ -56,4 +56,21 @@ class UIUtils {
       );
     }
   }
+
+  /// 繪製矩形到 Canvas 上，可選附帶邊框
+  static void drawRect(Canvas canvas, Rect rect, Color color, {Color? borderColor, double borderWidth = 1.0}) {
+    // 繪製填充部分
+    canvas.drawRect(rect, Paint()..color = color);
+
+    // 如果需要邊框，則繪製邊框
+    if (borderColor != null) {
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..color = borderColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = borderWidth,
+      );
+    }
+  }
 }

@@ -23,7 +23,7 @@ class InputManager {
 
         // 直接獲取背包UI實例並轉發事件
         final inventoryUI = game.player.inventory.inventoryUI;
-        if (inventoryUI.isBindingHotkey) {
+        if (inventoryUI.controller.isBindingHotkey) {
           final keyNumber =
               event.logicalKey == LogicalKeyboardKey.digit1
                   ? 1
@@ -36,7 +36,7 @@ class InputManager {
           final hotkeySlot = keyNumber - 1;
           print("【調試】直接綁定物品到熱鍵槽 $hotkeySlot");
 
-          if (inventoryUI.bindingItemIndex != null) {
+          if (inventoryUI.controller.bindingItemIndex != null) {
             inventoryUI.bindSelectedItemToHotkey(hotkeySlot);
           }
           return KeyEventResult.handled;

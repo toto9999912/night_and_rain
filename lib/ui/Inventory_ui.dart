@@ -7,55 +7,239 @@ import 'package:flutter/services.dart';
 import '../../main.dart';
 import '../components/enums/item_type.dart';
 import '../components/items/inventory.dart';
-import '../components/items/equipment.dart'; // 新增裝備系統引用
+import '../components/items/equipment.dart';
 import '../components/items/weapon_item.dart';
-import '../player.dart'; // 添加 Player 引用
+import '../player.dart';
+import '../utils/ui_utils.dart'; // 引入公共 UI 工具類
 
-/// 背包UI組件
-class InventoryUI extends PositionComponent
-    with TapCallbacks, KeyboardHandler, HasGameReference<NightAndRainGame> {
+/// 背包 UI 的控制器類，處理業務邏輯，不包含渲染邏輯
+class InventoryUIController {
+  final NightAndRainGame game;
   final Inventory inventory;
-  final Equipment equipment; // 新增裝備系統
-  final double padding = 10.0;
-  final double itemSize = 60.0;
-  final double spacing = 5.0;
-  int itemsPerRow = 5;
+  final Equipment equipment;
 
-  // UI 狀態
+  // UI 狀態 (仍需在控制器中保存，但只限業務邏輯相關的狀態)
   bool isVisible = false;
-  int? hoveredItemIndex;
   int? selectedItemIndex;
-  String? hoveredEquipSlot;
   String? selectedEquipSlot;
 
   // 熱鍵綁定相關狀態
   bool isBindingHotkey = false;
   int? bindingItemIndex;
 
+  InventoryUIController({required this.game, required this.inventory, required this.equipment});
+
+  /// 選擇背包中的物品
+  void selectItem(int? index) {
+    selectedItemIndex = index;
+    // 如果選中了新物品，重置綁定狀態
+    if (index != null && (bindingItemIndex == null || bindingItemIndex != index)) {
+      isBindingHotkey = false;
+      bindingItemIndex = null;
+      print("【調試】選中新物品，索引: $selectedItemIndex");
+    }
+  }
+
+  /// 嘗試綁定熱鍵
+  void toggleBindingMode(int index) {
+    // 如果點擊已選中的物品，則啟動熱鍵綁定模式
+    if (index == selectedItemIndex) {
+      // 切換到熱鍵綁定模式
+      isBindingHotkey = true;
+      bindingItemIndex = index;
+      print("【調試】啟動熱鍵綁定模式，物品索引: $bindingItemIndex");
+      _showMessage("請按下 1-4 數字鍵將此物品綁定到熱鍵欄");
+    } else {
+      // 選中新物品
+      selectedItemIndex = index;
+      // 重置綁定狀態
+      isBindingHotkey = false;
+      bindingItemIndex = null;
+    }
+  }
+
+  /// 將選中的物品綁定到指定熱鍵槽位
+  bool bindSelectedItemToHotkey(int hotkeySlot) {
+    if (selectedItemIndex == null || selectedItemIndex! >= inventory.items.length) {
+      print("【調試】綁定失敗：無效的物品索引 $selectedItemIndex");
+      return false;
+    }
+
+    final item = inventory.items[selectedItemIndex!];
+    print("【調試】嘗試綁定物品: ${item.name}，類型: ${item.type}，到熱鍵槽: $hotkeySlot");
+
+    // 獲取HotkeysHud實例
+    final hotkeysHud = game.hotkeysHud;
+    if (hotkeysHud == null) {
+      print("【調試】錯誤: hotkeysHud為空");
+      return false;
+    }
+
+    if (item.type == ItemType.weapon) {
+      // 如果是武器物品，檢查玩家是否擁有此武器
+      final weaponItem = item as WeaponItem;
+      print("【調試】武器類型: ${weaponItem.weapon.runtimeType}");
+      print("【調試】玩家擁有的武器: ${game.player.weapons.map((w) => w.runtimeType).toList()}");
+
+      final weaponIndex = game.player.weapons.indexWhere((w) => w.runtimeType == weaponItem.weapon.runtimeType);
+      print("【調試】找到武器索引: $weaponIndex");
+
+      if (weaponIndex >= 0) {
+        // 玩家已有此武器，綁定到熱鍵
+        print("【調試】綁定武器 ${game.player.weapons[weaponIndex].name} 到熱鍵槽 $hotkeySlot");
+        hotkeysHud.setWeaponHotkey(hotkeySlot, game.player.weapons[weaponIndex], weaponIndex);
+        _showBindSuccessMessage(item.name, hotkeySlot);
+        return true;
+      } else {
+        // 玩家尚未擁有此武器，無法綁定
+        print("【調試】無法綁定: 玩家未擁有此武器");
+        _showMessage("必須先裝備此武器才能添加到熱鍵");
+        return false;
+      }
+    } else {
+      // 如果是消耗品或其他類型物品，直接添加到熱鍵
+      print("【調試】綁定消耗品 ${item.name} 到熱鍵槽 $hotkeySlot");
+      hotkeysHud.setConsumableHotkey(hotkeySlot, item);
+      _showBindSuccessMessage(item.name, hotkeySlot);
+      return true;
+    }
+  }
+
+  /// 處理背包內物品的使用
+  void useSelectedItem() {
+    if (selectedItemIndex != null && selectedItemIndex! < inventory.items.length) {
+      inventory.useItem(selectedItemIndex!);
+    }
+  }
+
+  /// 處理鍵盤事件，返回是否已處理
+  bool handleKeyEvent(LogicalKeyboardKey key, bool isKeyDown) {
+    if (!isVisible) return false;
+
+    if (isKeyDown) {
+      final keyNumber = _getNumberFromKey(key);
+
+      // 如果正在綁定模式且按下了1-4數字鍵
+      if (isBindingHotkey &&
+          bindingItemIndex != null &&
+          bindingItemIndex! < inventory.items.length &&
+          keyNumber != null &&
+          keyNumber >= 1 &&
+          keyNumber <= 4) {
+        final hotkeySlot = keyNumber - 1;
+        if (bindSelectedItemToHotkey(hotkeySlot)) {
+          // 綁定後關閉綁定模式
+          isBindingHotkey = false;
+          bindingItemIndex = null;
+        }
+        return true;
+      }
+      // 如果已選中物品並且按下了1-4數字鍵 (非綁定模式)
+      else if (selectedItemIndex != null && selectedItemIndex! < inventory.items.length && keyNumber != null && keyNumber >= 1 && keyNumber <= 4) {
+        final hotkeySlot = keyNumber - 1; // 轉換為0-3的索引
+        if (bindSelectedItemToHotkey(hotkeySlot)) {
+          // 綁定後關閉綁定模式
+          isBindingHotkey = false;
+          bindingItemIndex = null;
+        }
+        return true;
+      }
+
+      // 一般模式 - 使用數字鍵1-9快速使用物品
+      if (keyNumber != null && keyNumber > 0 && keyNumber <= inventory.items.length) {
+        print("【調試】使用物品索引: ${keyNumber - 1}");
+        inventory.useItem(keyNumber - 1);
+        return true;
+      }
+    }
+
+    return true;
+  }
+
+  /// 顯示成功綁定的消息
+  void _showBindSuccessMessage(String itemName, int hotkeySlot) {
+    _showMessage("已將 $itemName 綁定至熱鍵 ${hotkeySlot + 1}");
+  }
+
+  /// 顯示消息
+  void _showMessage(String message) {
+    game.showMessage(message);
+  }
+
+  /// 從按鍵獲取數字（1-9）
+  int? _getNumberFromKey(LogicalKeyboardKey key) {
+    if (key == LogicalKeyboardKey.digit1) return 1;
+    if (key == LogicalKeyboardKey.digit2) return 2;
+    if (key == LogicalKeyboardKey.digit3) return 3;
+    if (key == LogicalKeyboardKey.digit4) return 4;
+    if (key == LogicalKeyboardKey.digit5) return 5;
+    if (key == LogicalKeyboardKey.digit6) return 6;
+    if (key == LogicalKeyboardKey.digit7) return 7;
+    if (key == LogicalKeyboardKey.digit8) return 8;
+    if (key == LogicalKeyboardKey.digit9) return 9;
+    return null;
+  }
+
+  /// 打開背包
+  void open() {
+    isVisible = true;
+  }
+
+  /// 關閉背包
+  void close() {
+    isVisible = false;
+    selectedItemIndex = null;
+    isBindingHotkey = false;
+    bindingItemIndex = null;
+  }
+
+  /// 切換背包開關狀態
+  void toggle() {
+    isVisible ? close() : open();
+  }
+}
+
+/// 背包 UI 視圖類，只處理渲染和使用者輸入，不包含業務邏輯
+class InventoryUI extends PositionComponent with TapCallbacks, KeyboardHandler, HasGameReference<NightAndRainGame> {
+  // 視圖設置和狀態
+  final double padding = 10.0;
+  final double itemSize = 60.0;
+  final double spacing = 5.0;
+  final int itemsPerRow = 5;
+
+  // 懸停元素視圖狀態（僅UI相關，不影響邏輯）
+  int? hoveredItemIndex;
+  String? hoveredEquipSlot;
+
   // 角色面板相關設置
   final double lineHeight = 25.0;
   final Color titleColor = Colors.yellow;
   final Color valueColor = Colors.cyan;
 
-  InventoryUI({required this.inventory, required this.equipment})
-    : super(priority: 100);
+  // 控制器
+  late final InventoryUIController controller;
+
+  InventoryUI({required Inventory inventory, required Equipment equipment}) : super(priority: 100) {
+    controller = InventoryUIController(
+      game: game, // 在 onLoad 中會設置 game
+      inventory: inventory,
+      equipment: equipment,
+    );
+  }
 
   @override
   Future<void> onLoad() async {
     // 加載精靈圖
-    final spriteSheet = SpriteSheet(
-      image: await Flame.images.load('item_pack.png'),
-      srcSize: Vector2(24, 24),
-    );
+    final spriteSheet = SpriteSheet(image: await Flame.images.load('item_pack.png'), srcSize: Vector2(24, 24));
 
     // 為每個物品加載對應的圖標
-    for (final item in inventory.items) {
+    for (final item in controller.inventory.items) {
       item.sprite = spriteSheet.getSprite(item.spriteX, item.spriteY);
     }
 
     // 為裝備中的物品也加載圖標
-    for (final equipSlot in equipment.slots.keys) {
-      final item = equipment.slots[equipSlot];
+    for (final equipSlot in controller.equipment.slots.keys) {
+      final item = controller.equipment.slots[equipSlot];
       if (item != null && item.sprite == null) {
         item.sprite = spriteSheet.getSprite(item.spriteX, item.spriteY);
       }
@@ -64,16 +248,11 @@ class InventoryUI extends PositionComponent
     // 設置背包UI的大小和位置 - 考慮裝備區域和角色狀態面板
     size = Vector2(
       itemsPerRow * (itemSize + spacing) + padding * 2 + 400, // 增加右側區域寬度
-      ((inventory.maxSize / itemsPerRow).ceil()) * (itemSize + spacing) +
-          padding * 2 +
-          50, // 增加高度以適應角色狀態
+      ((controller.inventory.maxSize / itemsPerRow).ceil()) * (itemSize + spacing) + padding * 2 + 50, // 增加高度以適應角色狀態
     );
 
     // 居中顯示
-    position = Vector2(
-      game.size.x / 2 - size.x / 2,
-      game.size.y / 2 - size.y / 2,
-    );
+    position = Vector2(game.size.x / 2 - size.x / 2, game.size.y / 2 - size.y / 2);
 
     await super.onLoad();
   }
@@ -82,33 +261,14 @@ class InventoryUI extends PositionComponent
   void render(Canvas canvas) {
     super.render(canvas);
 
-    if (!isVisible) return;
+    // 如果背包不可見，則不渲染
+    if (!controller.isVisible) return;
 
-    // 繪製背包背景
-    final bgRect = Rect.fromLTWH(0, 0, size.x, size.y);
-    final bgPaint =
-        Paint()
-          ..color = const Color(0xDD333333)
-          ..style = PaintingStyle.fill;
-    canvas.drawRect(bgRect, bgPaint);
-
-    // 繪製邊框
-    final borderPaint =
-        Paint()
-          ..color = Colors.grey
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2;
-    canvas.drawRect(bgRect, borderPaint);
+    // 繪製背景和邊框
+    _drawBackground(canvas);
 
     // 繪製標題
-    _drawText(
-      canvas,
-      '背包與角色狀態',
-      Vector2(size.x / 2, padding),
-      TextAlign.center,
-      Colors.white,
-      fontSize: 18,
-    );
+    UIUtils.drawText(canvas, '背包與角色狀態', Vector2(size.x / 2, padding), align: TextAlign.center, color: Colors.white, fontSize: 18);
 
     // 繪製物品格子
     _drawItemSlots(canvas);
@@ -116,16 +276,23 @@ class InventoryUI extends PositionComponent
     // 繪製裝備區域
     _drawEquipmentSlots(canvas);
 
-    // 繪製物品詳細說明
+    // 繪製選中物品的詳細說明
     _drawItemDetails(canvas);
 
     // 繪製角色狀態面板
     _drawCharacterStats(canvas);
   }
 
+  /// 繪製背景和邊框
+  void _drawBackground(Canvas canvas) {
+    // 繪製背包背景
+    final bgRect = Rect.fromLTWH(0, 0, size.x, size.y);
+    UIUtils.drawRect(canvas, bgRect, const Color(0xDD333333), borderColor: Colors.grey, borderWidth: 2.0);
+  }
+
   /// 繪製物品格子
   void _drawItemSlots(Canvas canvas) {
-    for (int i = 0; i < inventory.maxSize; i++) {
+    for (int i = 0; i < controller.inventory.maxSize; i++) {
       final row = i ~/ itemsPerRow;
       final col = i % itemsPerRow;
 
@@ -134,52 +301,39 @@ class InventoryUI extends PositionComponent
 
       // 繪製格子
       final slotRect = Rect.fromLTWH(x, y, itemSize, itemSize);
-      final slotPaint =
-          Paint()
-            ..color =
-                i == selectedItemIndex
-                    ? const Color(0xFF555555)
-                    : const Color(0xFF444444)
-            ..style = PaintingStyle.fill;
-      canvas.drawRect(slotRect, slotPaint);
-
-      final slotBorderPaint =
-          Paint()
-            ..color =
-                i == hoveredItemIndex ? Colors.yellow : Colors.grey.shade600
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1;
-      canvas.drawRect(slotRect, slotBorderPaint);
+      UIUtils.drawRect(
+        canvas,
+        slotRect,
+        i == controller.selectedItemIndex ? const Color(0xFF555555) : const Color(0xFF444444),
+        borderColor: i == hoveredItemIndex ? Colors.yellow : Colors.grey.shade600,
+        borderWidth: 1.0,
+      );
 
       // 如果格子有物品，則繪製物品
-      if (i < inventory.items.length) {
-        final item = inventory.items[i];
+      if (i < controller.inventory.items.length) {
+        final item = controller.inventory.items[i];
 
         // 繪製物品圖示
-        item.sprite?.render(
-          canvas,
-          position: Vector2(x, y),
-          size: Vector2(itemSize, itemSize),
-        );
+        item.sprite?.render(canvas, position: Vector2(x, y), size: Vector2(itemSize, itemSize));
 
         // 繪製物品名稱
-        _drawText(
+        UIUtils.drawText(
           canvas,
           item.name,
           Vector2(x + itemSize / 2, y + itemSize - 10),
-          TextAlign.center,
-          item.rarityColor,
+          align: TextAlign.center,
+          color: item.rarityColor,
           fontSize: 12,
         );
 
         // 如果是可堆疊物品且數量大於1，則顯示數量
         if (item.isStackable && item.quantity > 1) {
-          _drawText(
+          UIUtils.drawText(
             canvas,
             item.quantity.toString(),
             Vector2(x + itemSize - 5, y + 15),
-            TextAlign.right,
-            Colors.white,
+            align: TextAlign.right,
+            color: Colors.white,
             fontSize: 14,
             bold: true,
           );
@@ -190,7 +344,7 @@ class InventoryUI extends PositionComponent
 
   /// 繪製裝備區域
   void _drawEquipmentSlots(Canvas canvas) {
-    final equipSlots = equipment.slots.keys.toList();
+    final equipSlots = controller.equipment.slots.keys.toList();
     for (int i = 0; i < equipSlots.length; i++) {
       final slot = equipSlots[i];
       final x = size.x - 200 + padding; // 裝備區域的X位置
@@ -198,43 +352,85 @@ class InventoryUI extends PositionComponent
 
       // 繪製裝備格子
       final slotRect = Rect.fromLTWH(x, y, itemSize, itemSize);
-      final slotPaint =
-          Paint()
-            ..color =
-                slot == selectedEquipSlot
-                    ? const Color(0xFF555555)
-                    : const Color(0xFF444444)
-            ..style = PaintingStyle.fill;
-      canvas.drawRect(slotRect, slotPaint);
-
-      final slotBorderPaint =
-          Paint()
-            ..color =
-                slot == hoveredEquipSlot ? Colors.yellow : Colors.grey.shade600
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1;
-      canvas.drawRect(slotRect, slotBorderPaint);
+      UIUtils.drawRect(
+        canvas,
+        slotRect,
+        slot == controller.selectedEquipSlot ? const Color(0xFF555555) : const Color(0xFF444444),
+        borderColor: slot == hoveredEquipSlot ? Colors.yellow : Colors.grey.shade600,
+        borderWidth: 1.0,
+      );
 
       // 如果格子有裝備，則繪製裝備
-      final equipItem = equipment.slots[slot];
+      final equipItem = controller.equipment.slots[slot];
       if (equipItem != null) {
         // 繪製裝備圖示
-        equipItem.sprite?.render(
-          canvas,
-          position: Vector2(x, y),
-          size: Vector2(itemSize, itemSize),
-        );
+        equipItem.sprite?.render(canvas, position: Vector2(x, y), size: Vector2(itemSize, itemSize));
 
         // 繪製裝備名稱
-        _drawText(
+        UIUtils.drawText(
           canvas,
           equipItem.name,
           Vector2(x + itemSize / 2, y + itemSize - 10),
-          TextAlign.center,
-          equipItem.rarityColor,
+          align: TextAlign.center,
+          color: equipItem.rarityColor,
           fontSize: 12,
         );
       }
+    }
+  }
+
+  /// 繪製選中物品的詳細信息
+  void _drawItemDetails(Canvas canvas) {
+    if (controller.selectedItemIndex == null || controller.selectedItemIndex! >= controller.inventory.items.length) {
+      return;
+    }
+
+    final item = controller.inventory.items[controller.selectedItemIndex!];
+    final detailX = padding;
+    final detailY = size.y - 80; // 底部留出空間顯示詳情
+
+    // 繪製詳情背景
+    final detailRect = Rect.fromLTWH(detailX, detailY, size.x - padding * 2, 70);
+    UIUtils.drawRect(canvas, detailRect, const Color(0xFF222222));
+
+    // 繪製物品名稱
+    UIUtils.drawText(
+      canvas,
+      item.name,
+      Vector2(detailX + 10, detailY + 15),
+      align: TextAlign.left,
+      color: item.rarityColor,
+      fontSize: 16,
+      bold: true,
+    );
+
+    // 繪製物品描述
+    UIUtils.drawText(canvas, item.description, Vector2(detailX + 10, detailY + 35), align: TextAlign.left, color: Colors.white, fontSize: 12);
+
+    // 繪製使用提示
+    UIUtils.drawText(canvas, '點擊物品使用', Vector2(detailX + 10, detailY + 55), align: TextAlign.left, color: Colors.yellow, fontSize: 12);
+
+    // 繪製熱鍵綁定提示
+    UIUtils.drawText(
+      canvas,
+      '按下數字鍵 1-4 綁定至熱鍵欄',
+      Vector2(size.x - padding - 10, detailY + 55),
+      align: TextAlign.right,
+      color: Colors.cyan,
+      fontSize: 12,
+    );
+
+    // 如果正在綁定熱鍵，顯示提示
+    if (controller.isBindingHotkey && controller.bindingItemIndex == controller.selectedItemIndex) {
+      UIUtils.drawText(
+        canvas,
+        '請按下 1-4 數字鍵選擇熱鍵位置',
+        Vector2(size.x / 2, detailY - 10),
+        align: TextAlign.center,
+        color: Colors.yellow,
+        fontSize: 16,
+        bold: true,
+      );
     }
   }
 
@@ -253,43 +449,19 @@ class InventoryUI extends PositionComponent
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1;
 
-    canvas.drawLine(
-      Offset(statsX - 10, padding * 2),
-      Offset(statsX - 10, size.y - padding * 2),
-      dividerPaint,
-    );
+    canvas.drawLine(Offset(statsX - 10, padding * 2), Offset(statsX - 10, size.y - padding * 2), dividerPaint);
 
     // 繪製角色狀態標題
-    _drawText(
-      canvas,
-      '角色狀態',
-      Vector2(statsX + 80, padding * 2),
-      TextAlign.center,
-      titleColor,
-      fontSize: 18,
-      bold: true,
-    );
+    UIUtils.drawText(canvas, '角色狀態', Vector2(statsX + 80, padding * 2), align: TextAlign.center, color: titleColor, fontSize: 18, bold: true);
 
     y += lineHeight * 1.5;
 
     // 生命值
-    _drawStatLine(
-      canvas,
-      '生命值',
-      '${player.currentHealth.toInt()}/${player.maxHealth.toInt()}',
-      statsX,
-      y,
-    );
+    _drawStatLine(canvas, '生命值', '${player.currentHealth.toInt()}/${player.maxHealth.toInt()}', statsX, y);
     y += lineHeight;
 
     // 魔力值
-    _drawStatLine(
-      canvas,
-      '魔力值',
-      '${player.currentMana.toInt()}/${player.maxMana.toInt()}',
-      statsX,
-      y,
-    );
+    _drawStatLine(canvas, '魔力值', '${player.currentMana.toInt()}/${player.maxMana.toInt()}', statsX, y);
     y += lineHeight;
 
     // 攻擊力
@@ -308,25 +480,11 @@ class InventoryUI extends PositionComponent
     _drawStatLine(canvas, '等級', '${player.level}', statsX, y);
     y += lineHeight;
 
-    _drawStatLine(
-      canvas,
-      '經驗值',
-      '${player.experience}/${player.experienceToNextLevel}',
-      statsX,
-      y,
-    );
+    _drawStatLine(canvas, '經驗值', '${player.experience}/${player.experienceToNextLevel}', statsX, y);
     y += lineHeight * 1.5;
 
     // 裝備加成區塊
-    _drawText(
-      canvas,
-      '裝備加成',
-      Vector2(statsX, y),
-      TextAlign.left,
-      titleColor,
-      fontSize: 16,
-      bold: true,
-    );
+    UIUtils.drawText(canvas, '裝備加成', Vector2(statsX, y), align: TextAlign.left, color: titleColor, fontSize: 16, bold: true);
 
     y += lineHeight * 1.2;
 
@@ -405,149 +563,12 @@ class InventoryUI extends PositionComponent
   }
 
   /// 繪製屬性行 (給角色面板使用)
-  void _drawStatLine(
-    Canvas canvas,
-    String label,
-    String value,
-    double x,
-    double y, {
-    Color? valueColor,
-  }) {
+  void _drawStatLine(Canvas canvas, String label, String value, double x, double y, {Color? valueColor}) {
     // 繪製屬性名稱
-    _drawText(
-      canvas,
-      '$label:',
-      Vector2(x, y),
-      TextAlign.left,
-      Colors.white,
-      fontSize: 14,
-    );
+    UIUtils.drawText(canvas, '$label:', Vector2(x, y), align: TextAlign.left, color: Colors.white, fontSize: 14);
 
     // 繪製屬性值
-    _drawText(
-      canvas,
-      value,
-      Vector2(x + 160, y),
-      TextAlign.right,
-      valueColor ?? this.valueColor,
-      fontSize: 14,
-      bold: true,
-    );
-  }
-
-  /// 繪製選中物品的詳細信息
-  void _drawItemDetails(Canvas canvas) {
-    if (selectedItemIndex == null ||
-        selectedItemIndex! >= inventory.items.length) {
-      return;
-    }
-
-    final item = inventory.items[selectedItemIndex!];
-    final detailX = padding;
-    final detailY = size.y - 80; // 底部留出空間顯示詳情
-
-    // 繪製詳情背景
-    final detailRect = Rect.fromLTWH(
-      detailX,
-      detailY,
-      size.x - padding * 2,
-      70,
-    );
-    final detailPaint =
-        Paint()
-          ..color = const Color(0xFF222222)
-          ..style = PaintingStyle.fill;
-    canvas.drawRect(detailRect, detailPaint);
-
-    // 繪製物品名稱
-    _drawText(
-      canvas,
-      item.name,
-      Vector2(detailX + 10, detailY + 15),
-      TextAlign.left,
-      item.rarityColor,
-      fontSize: 16,
-      bold: true,
-    );
-
-    // 繪製物品描述
-    _drawText(
-      canvas,
-      item.description,
-      Vector2(detailX + 10, detailY + 35),
-      TextAlign.left,
-      Colors.white,
-      fontSize: 12,
-    );
-
-    // 繪製使用提示
-    _drawText(
-      canvas,
-      '點擊物品使用',
-      Vector2(detailX + 10, detailY + 55),
-      TextAlign.left,
-      Colors.yellow,
-      fontSize: 12,
-    );
-
-    // 繪製熱鍵綁定提示
-    _drawText(
-      canvas,
-      '按下數字鍵 1-4 綁定至熱鍵欄',
-      Vector2(size.x - padding - 10, detailY + 55),
-      TextAlign.right,
-      Colors.cyan,
-      fontSize: 12,
-    );
-
-    // 如果正在綁定熱鍵，顯示提示
-    if (isBindingHotkey && bindingItemIndex == selectedItemIndex) {
-      _drawText(
-        canvas,
-        '請按下 1-4 數字鍵選擇熱鍵位置',
-        Vector2(size.x / 2, detailY - 10),
-        TextAlign.center,
-        Colors.yellow,
-        fontSize: 16,
-        bold: true,
-      );
-    }
-  }
-
-  /// 文字繪製輔助方法
-  void _drawText(
-    Canvas canvas,
-    String text,
-    Vector2 position,
-    TextAlign align,
-    Color color, {
-    double fontSize = 16,
-    bool bold = false,
-  }) {
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          color: color,
-          fontSize: fontSize,
-          fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-          fontFamily: 'Cubic11', // 設置字體以匹配遊戲風格
-        ),
-      ),
-      textAlign: align,
-      textDirection: TextDirection.ltr,
-    );
-
-    textPainter.layout();
-
-    double x = position.x;
-    if (align == TextAlign.center) {
-      x -= textPainter.width / 2;
-    } else if (align == TextAlign.right) {
-      x -= textPainter.width;
-    }
-
-    textPainter.paint(canvas, Offset(x, position.y - textPainter.height / 2));
+    UIUtils.drawText(canvas, value, Vector2(x + 160, y), align: TextAlign.right, color: valueColor ?? this.valueColor, fontSize: 14, bold: true);
   }
 
   /// 鼠標點擊事件處理
@@ -555,7 +576,7 @@ class InventoryUI extends PositionComponent
   void onTapDown(TapDownEvent event) {
     super.onTapDown(event);
 
-    if (!isVisible) return;
+    if (!controller.isVisible) return;
 
     // 獲取點擊的相對位置
     final localPosition = event.localPosition;
@@ -565,32 +586,16 @@ class InventoryUI extends PositionComponent
     final itemIndex = _getItemIndexAtPosition(localPosition);
     print("【調試】點擊的物品索引: $itemIndex");
 
-    if (itemIndex != null && itemIndex < inventory.items.length) {
-      print("【調試】點擊的物品: ${inventory.items[itemIndex].name}");
-      print("【調試】目前選中的物品索引: $selectedItemIndex");
+    if (itemIndex != null && itemIndex < controller.inventory.items.length) {
+      print("【調試】點擊的物品: ${controller.inventory.items[itemIndex].name}");
 
-      // 如果點擊已選中的物品，則啟動熱鍵綁定模式
-      if (itemIndex == selectedItemIndex) {
-        // 切換到熱鍵綁定模式
-        isBindingHotkey = true;
-        bindingItemIndex = itemIndex;
-        print("【調試】啟動熱鍵綁定模式，物品索引: $bindingItemIndex");
-        _showMessage("請按下 1-4 數字鍵將此物品綁定到熱鍵欄");
-      }
-      // 否則選中該物品
-      else {
-        selectedItemIndex = itemIndex;
-        // 重置綁定狀態
-        isBindingHotkey = false;
-        bindingItemIndex = null;
-        print("【調試】選中新物品，索引: $selectedItemIndex");
-      }
+      controller.toggleBindingMode(itemIndex);
     }
   }
 
   /// 鼠標移動事件處理
   void onPointerMove(Vector2 position) {
-    if (!isVisible) return;
+    if (!controller.isVisible) return;
 
     final localPosition = position - this.position;
     hoveredItemIndex = _getItemIndexAtPosition(localPosition);
@@ -602,10 +607,7 @@ class InventoryUI extends PositionComponent
     final y = position.y;
 
     // 確保在背包範圍內
-    if (x < padding ||
-        x > size.x - padding ||
-        y < padding + 30 ||
-        y > size.y - 80) {
+    if (x < padding || x > size.x - padding || y < padding + 30 || y > size.y - 80) {
       return null;
     }
 
@@ -615,7 +617,7 @@ class InventoryUI extends PositionComponent
     if (col < 0 || col >= itemsPerRow || row < 0) return null;
 
     final index = row * itemsPerRow + col;
-    if (index < 0 || index >= inventory.maxSize) return null;
+    if (index < 0 || index >= controller.inventory.maxSize) return null;
 
     return index;
   }
@@ -623,153 +625,25 @@ class InventoryUI extends PositionComponent
   /// 處理鍵盤事件
   @override
   bool onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
-    if (!isVisible) return super.onKeyEvent(event, keysPressed);
+    if (!controller.isVisible) return super.onKeyEvent(event, keysPressed);
 
     // 添加除錯輸出
     print("【調試】物品欄接收到鍵盤事件: ${event.logicalKey}, 事件類型: ${event.runtimeType}");
-    print(
-      "【調試】背包可見: $isVisible, 綁定模式: $isBindingHotkey, 選中物品: $selectedItemIndex, 綁定物品: $bindingItemIndex",
-    );
 
     if (event is KeyDownEvent) {
-      final keyNumber = _getNumberFromKey(event.logicalKey);
-      print("【調試】解析的數字鍵: $keyNumber");
-
-      // 如果正在綁定模式且按下了1-4數字鍵
-      if (isBindingHotkey &&
-          bindingItemIndex != null &&
-          bindingItemIndex! < inventory.items.length &&
-          keyNumber != null &&
-          keyNumber >= 1 &&
-          keyNumber <= 4) {
-        final hotkeySlot = keyNumber - 1;
-        print("【調試】正在綁定模式中，將物品 $bindingItemIndex 綁定到熱鍵槽 $hotkeySlot");
-        bindSelectedItemToHotkey(hotkeySlot);
-        return true;
-      }
-      // 如果已選中物品並且按下了1-4數字鍵 (非綁定模式)
-      else if (selectedItemIndex != null &&
-          selectedItemIndex! < inventory.items.length &&
-          keyNumber != null &&
-          keyNumber >= 1 &&
-          keyNumber <= 4) {
-        final hotkeySlot = keyNumber - 1; // 轉換為0-3的索引
-        print("【調試】非綁定模式，嘗試綁定物品 $selectedItemIndex 到熱鍵槽 $hotkeySlot");
-        bindSelectedItemToHotkey(hotkeySlot);
-        return true;
-      }
-
-      // 一般模式 - 使用數字鍵1-9快速使用物品
-      if (keyNumber != null &&
-          keyNumber > 0 &&
-          keyNumber <= inventory.items.length) {
-        print("【調試】使用物品索引: ${keyNumber - 1}");
-        inventory.useItem(keyNumber - 1);
-        return true;
-      }
+      return controller.handleKeyEvent(event.logicalKey, true);
+    } else if (event is KeyUpEvent) {
+      return controller.handleKeyEvent(event.logicalKey, false);
     }
 
-    return true; // 返回 true 確保事件在物品欄開啟時被處理並消費掉
+    return true;
   }
 
-  /// 將選中的物品綁定到指定熱鍵槽位
-  void bindSelectedItemToHotkey(int hotkeySlot) {
-    if (selectedItemIndex == null ||
-        selectedItemIndex! >= inventory.items.length) {
-      print("【調試】綁定失敗：無效的物品索引 $selectedItemIndex");
-      return;
-    }
+  /// 對外方法代理到控制器
+  void open() => controller.open();
+  void close() => controller.close();
+  void toggle() => controller.toggle();
 
-    final item = inventory.items[selectedItemIndex!];
-    print("【調試】嘗試綁定物品: ${item.name}，類型: ${item.type}，到熱鍵槽: $hotkeySlot");
-
-    // 獲取HotkeysHud實例
-    final hotkeysHud = game.hotkeysHud;
-    if (hotkeysHud == null) {
-      print("【調試】錯誤: hotkeysHud為空");
-      return;
-    }
-
-    if (item.type == ItemType.weapon) {
-      // 如果是武器物品，檢查玩家是否擁有此武器
-      final weaponItem = item as WeaponItem;
-      print("【調試】武器類型: ${weaponItem.weapon.runtimeType}");
-      print(
-        "【調試】玩家擁有的武器: ${game.player.weapons.map((w) => w.runtimeType).toList()}",
-      );
-
-      final weaponIndex = game.player.weapons.indexWhere(
-        (w) => w.runtimeType == weaponItem.weapon.runtimeType,
-      );
-      print("【調試】找到武器索引: $weaponIndex");
-
-      if (weaponIndex >= 0) {
-        // 玩家已有此武器，綁定到熱鍵
-        print(
-          "【調試】綁定武器 ${game.player.weapons[weaponIndex].name} 到熱鍵槽 $hotkeySlot",
-        );
-        hotkeysHud.setWeaponHotkey(
-          hotkeySlot,
-          game.player.weapons[weaponIndex],
-          weaponIndex,
-        );
-        _showBindSuccessMessage(item.name, hotkeySlot);
-      } else {
-        // 玩家尚未擁有此武器，無法綁定
-        print("【調試】無法綁定: 玩家未擁有此武器");
-        _showMessage("必須先裝備此武器才能添加到熱鍵");
-      }
-    } else {
-      // 如果是消耗品或其他類型物品，直接添加到熱鍵
-      print("【調試】綁定消耗品 ${item.name} 到熱鍵槽 $hotkeySlot");
-      hotkeysHud.setConsumableHotkey(hotkeySlot, item);
-      _showBindSuccessMessage(item.name, hotkeySlot);
-    }
-
-    // 綁定後關閉綁定模式
-    isBindingHotkey = false;
-    bindingItemIndex = null;
-    print("【調試】綁定完成，已退出綁定模式");
-  }
-
-  /// 顯示成功綁定的消息
-  void _showBindSuccessMessage(String itemName, int hotkeySlot) {
-    _showMessage("已將 $itemName 綁定至熱鍵 ${hotkeySlot + 1}");
-  }
-
-  /// 顯示消息
-  void _showMessage(String message) {
-    game.showMessage(message);
-  }
-
-  /// 從按鍵獲取數字（1-9）
-  int? _getNumberFromKey(LogicalKeyboardKey key) {
-    if (key == LogicalKeyboardKey.digit1) return 1;
-    if (key == LogicalKeyboardKey.digit2) return 2;
-    if (key == LogicalKeyboardKey.digit3) return 3;
-    if (key == LogicalKeyboardKey.digit4) return 4;
-    if (key == LogicalKeyboardKey.digit5) return 5;
-    if (key == LogicalKeyboardKey.digit6) return 6;
-    if (key == LogicalKeyboardKey.digit7) return 7;
-    if (key == LogicalKeyboardKey.digit8) return 8;
-    if (key == LogicalKeyboardKey.digit9) return 9;
-    return null;
-  }
-
-  /// 打開背包
-  void open() {
-    isVisible = true;
-  }
-
-  /// 關閉背包
-  void close() {
-    isVisible = false;
-    selectedItemIndex = null;
-    hoveredItemIndex = null;
-  }
-
-  /// 切換背包開關狀態
-  void toggle() {
-    isVisible ? close() : open();
-  }
+  /// 公開給外部調用的熱鍵綁定方法
+  bool bindSelectedItemToHotkey(int hotkeySlot) => controller.bindSelectedItemToHotkey(hotkeySlot);
 }

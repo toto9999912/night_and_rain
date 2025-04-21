@@ -94,7 +94,7 @@ class PlayerInventory {
     }
 
     inventoryUI.toggle();
-    return inventoryUI.isVisible;
+    return inventoryUI.controller.isVisible;
   }
 
   /// 切換角色面板顯示狀態
@@ -179,8 +179,5 @@ class PlayerInventory {
   }
 
   /// 檢查UI是否開啟
-  bool get isUIVisible =>
-      inventoryUI.isVisible ||
-      characterPanel.isVisible ||
-      dialogueSystem.isVisible;
+  bool get isUIVisible => inventoryUI.controller.isVisible || characterPanel.isVisible || dialogueSystem.isVisible;
 }
