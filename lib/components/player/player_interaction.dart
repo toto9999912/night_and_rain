@@ -28,12 +28,7 @@ class PlayerInteraction {
   final PositionComponent component;
   DialogueSystem dialogueSystem; // 移除 final 關鍵字，使其可變
 
-  PlayerInteraction({
-    required this.gameRef,
-    required this.component,
-    required this.dialogueSystem,
-    this.interactionRadius = 60.0,
-  });
+  PlayerInteraction({required this.gameRef, required this.component, required this.dialogueSystem, this.interactionRadius = 60.0});
 
   /// 設置對話框
   void setupDialogueBox() {
@@ -41,13 +36,7 @@ class PlayerInteraction {
     // 但仍保留該方法和基本對話框以兼容舊程式碼
     dialogueBox = VisibleTextComponent(
       text: '',
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          fontSize: 16.0,
-          color: Colors.white,
-          backgroundColor: Color(0x99000000),
-        ),
-      ),
+      textRenderer: TextPaint(style: const TextStyle(fontSize: 16.0, color: Colors.white, backgroundColor: Color(0x99000000))),
       position: Vector2(0, -70),
       anchor: Anchor.bottomCenter,
     )..priority = 10;
@@ -62,8 +51,11 @@ class PlayerInteraction {
     final greetingRadius = interactionRadius * 1.2; // 問候半徑比互動半徑大
     final actionRadius = interactionRadius * 0.7; // 交談半徑比互動半徑小
 
+    // 使用 NPCManager 的 npcs 列表
+    final npcs = gameRef.game.gameWorld.npcManager.npcs;
+
     // 更新所有NPC的互動提示狀態
-    for (final npc in gameRef.game.gameWorld.npcs) {
+    for (final npc in npcs) {
       final distance = playerPosition.distanceTo(npc.position);
 
       // 如果玩家在問候半徑內，顯示問候語
@@ -106,10 +98,7 @@ class PlayerInteraction {
       dialogueSystem.closeDialogue();
       interactingNPC = null;
     } else {
-      interactingNPC = gameRef.game.gameWorld.interactWithNearestNPC(
-        playerPosition,
-        maxDistance: interactionRadius,
-      );
+      interactingNPC = gameRef.game.gameWorld.interactWithNearestNPC(playerPosition, maxDistance: interactionRadius);
 
       if (interactingNPC != null) {
         // 使用新的對話系統
@@ -117,8 +106,7 @@ class PlayerInteraction {
 
         // 創建對話數據
         final dialogue = DialogueData(
-          id:
-              'npc_${interactingNPC!.id}_${DateTime.now().millisecondsSinceEpoch}',
+          id: 'npc_${interactingNPC!.id}_${DateTime.now().millisecondsSinceEpoch}',
           speaker: interactingNPC!.name,
           text: dialogueText,
           options: [
