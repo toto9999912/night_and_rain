@@ -1,5 +1,4 @@
 import 'package:flame/components.dart';
-import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../main.dart';

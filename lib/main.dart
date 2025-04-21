@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:async';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flame/components.dart';
@@ -12,7 +11,8 @@ import 'bullet.dart';
 import 'npc.dart';
 import 'player.dart';
 import 'ui/health_mana_hud.dart';
-import 'ui/hotkeys_hud.dart'; // 添加 hotkeys_hud 導入
+import 'ui/hotkeys_hud.dart'; // 快捷鍵 HUD 導入
+import 'ui/current_weapon_hud.dart'; // 新增當前武器 HUD 導入
 import 'village_map.dart';
 import 'screens/main_menu_screen.dart';
 
@@ -62,6 +62,10 @@ class NightAndRainGame extends FlameGame
   // 專用UI層 - 用於HUD和其他不受相機影響的UI元件
   late final Component uiLayer;
 
+  // 消息顯示相關屬性
+  TextComponent? _messageComponent;
+  Timer? _messageTimer;
+
   @override
   Future<void> onLoad() async {
     await _setupGameWorld();
@@ -106,7 +110,50 @@ class NightAndRainGame extends FlameGame
 
     // 創建并添加快捷鍵 HUD
     hotkeysHud = HotkeysHud();
+    print("【調試】初始化熱鍵欄: $hotkeysHud");
     cameraComponent.viewport.add(hotkeysHud);
+
+    // 添加當前武器 HUD，放在 hotkeysHud 左側
+    final currentWeaponHud = CurrentWeaponHud();
+    cameraComponent.viewport.add(currentWeaponHud);
+  }
+
+  /// 顯示一條消息在螢幕上
+  void showMessage(String message, {double duration = 2.0}) {
+    if (_messageComponent != null) {
+      _messageComponent!.removeFromParent();
+      _messageComponent = null;
+    }
+
+    if (_messageTimer != null && !_messageTimer!.finished) {
+      _messageTimer!.stop();
+    }
+
+    _messageComponent = TextComponent(
+      text: message,
+      textRenderer: TextPaint(
+        style: const TextStyle(
+          fontSize: 16,
+          color: Colors.white,
+          backgroundColor: Color(0x99000000),
+          fontFamily: 'Cubic11',
+        ),
+      ),
+      anchor: Anchor.topCenter,
+      position: Vector2(size.x / 2, 50),
+    );
+
+    world.add(_messageComponent!);
+
+    _messageTimer = Timer(
+      duration,
+      onTick: () {
+        if (_messageComponent != null) {
+          _messageComponent!.removeFromParent();
+          _messageComponent = null;
+        }
+      },
+    );
   }
 
   @override
@@ -114,6 +161,37 @@ class NightAndRainGame extends FlameGame
     KeyEvent event,
     Set<LogicalKeyboardKey> keysPressed,
   ) {
+    // 如果背包或角色面板開啟，且按下的是數字鍵1-4，則優先處理物品綁定
+    if (player.inventory.isUIVisible && event is KeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.digit1 ||
+          event.logicalKey == LogicalKeyboardKey.digit2 ||
+          event.logicalKey == LogicalKeyboardKey.digit3 ||
+          event.logicalKey == LogicalKeyboardKey.digit4) {
+        print("【調試】主遊戲接收到數字鍵: ${event.logicalKey}，將轉發給背包UI處理");
+
+        // 直接獲取背包UI實例並轉發事件
+        final inventoryUI = player.inventory.inventoryUI;
+        if (inventoryUI.isBindingHotkey) {
+          final keyNumber =
+              event.logicalKey == LogicalKeyboardKey.digit1
+                  ? 1
+                  : event.logicalKey == LogicalKeyboardKey.digit2
+                  ? 2
+                  : event.logicalKey == LogicalKeyboardKey.digit3
+                  ? 3
+                  : 4;
+
+          final hotkeySlot = keyNumber - 1;
+          print("【調試】直接綁定物品到熱鍵槽 $hotkeySlot");
+
+          if (inventoryUI.bindingItemIndex != null) {
+            inventoryUI.bindSelectedItemToHotkey(hotkeySlot);
+          }
+          return KeyEventResult.handled;
+        }
+      }
+    }
+
     // 處理「i」鍵打開/關閉背包
     if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.keyI) {
       player.toggleInventory();
@@ -144,9 +222,7 @@ class NightAndRainGame extends FlameGame
     }
 
     // 只有當背包、角色面板和對話系統未打開時才處理移動和射擊
-    if (!player.inventoryUI.isVisible &&
-        !player.characterPanel.isVisible &&
-        !player.dialogueSystem.isVisible) {
+    if (!player.inventory.isUIVisible) {
       player.updateMovement(keysPressed);
 
       // 空格鍵射擊
@@ -159,7 +235,7 @@ class NightAndRainGame extends FlameGame
       }
     } else {
       // 如果UI打開中，則停止角色移動和射擊
-      player.direction = Vector2.zero();
+      player.movement.stopMovement();
       player.stopShooting();
     }
 
@@ -184,6 +260,16 @@ class NightAndRainGame extends FlameGame
   @override
   void onTapUp(TapUpInfo info) {
     player.stopShooting();
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+
+    // 更新消息計時器
+    if (_messageTimer != null && !_messageTimer!.finished) {
+      _messageTimer!.update(dt);
+    }
   }
 }
 

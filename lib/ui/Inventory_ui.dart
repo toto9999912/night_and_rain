@@ -4,11 +4,11 @@ import 'package:flame/flame.dart';
 import 'package:flame/sprite.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
 import '../../main.dart';
-
+import '../components/enums/item_type.dart';
 import '../components/items/inventory.dart';
 import '../components/items/equipment.dart'; // 新增裝備系統引用
+import '../components/items/weapon_item.dart';
 import '../player.dart'; // 添加 Player 引用
 
 /// 背包UI組件
@@ -27,6 +27,10 @@ class InventoryUI extends PositionComponent
   int? selectedItemIndex;
   String? hoveredEquipSlot;
   String? selectedEquipSlot;
+
+  // 熱鍵綁定相關狀態
+  bool isBindingHotkey = false;
+  int? bindingItemIndex;
 
   // 角色面板相關設置
   final double lineHeight = 25.0;
@@ -485,6 +489,29 @@ class InventoryUI extends PositionComponent
       Colors.yellow,
       fontSize: 12,
     );
+
+    // 繪製熱鍵綁定提示
+    _drawText(
+      canvas,
+      '按下數字鍵 1-4 綁定至熱鍵欄',
+      Vector2(size.x - padding - 10, detailY + 55),
+      TextAlign.right,
+      Colors.cyan,
+      fontSize: 12,
+    );
+
+    // 如果正在綁定熱鍵，顯示提示
+    if (isBindingHotkey && bindingItemIndex == selectedItemIndex) {
+      _drawText(
+        canvas,
+        '請按下 1-4 數字鍵選擇熱鍵位置',
+        Vector2(size.x / 2, detailY - 10),
+        TextAlign.center,
+        Colors.yellow,
+        fontSize: 16,
+        bold: true,
+      );
+    }
   }
 
   /// 文字繪製輔助方法
@@ -532,19 +559,31 @@ class InventoryUI extends PositionComponent
 
     // 獲取點擊的相對位置
     final localPosition = event.localPosition;
+    print("【調試】背包點擊位置: $localPosition");
 
     // 計算點擊的物品索引
     final itemIndex = _getItemIndexAtPosition(localPosition);
+    print("【調試】點擊的物品索引: $itemIndex");
 
-    if (itemIndex != null) {
-      // 如果點擊已選中的物品，則使用它
-      if (itemIndex == selectedItemIndex &&
-          itemIndex < inventory.items.length) {
-        inventory.useItem(itemIndex);
+    if (itemIndex != null && itemIndex < inventory.items.length) {
+      print("【調試】點擊的物品: ${inventory.items[itemIndex].name}");
+      print("【調試】目前選中的物品索引: $selectedItemIndex");
+
+      // 如果點擊已選中的物品，則啟動熱鍵綁定模式
+      if (itemIndex == selectedItemIndex) {
+        // 切換到熱鍵綁定模式
+        isBindingHotkey = true;
+        bindingItemIndex = itemIndex;
+        print("【調試】啟動熱鍵綁定模式，物品索引: $bindingItemIndex");
+        _showMessage("請按下 1-4 數字鍵將此物品綁定到熱鍵欄");
       }
       // 否則選中該物品
       else {
         selectedItemIndex = itemIndex;
+        // 重置綁定狀態
+        isBindingHotkey = false;
+        bindingItemIndex = null;
+        print("【調試】選中新物品，索引: $selectedItemIndex");
       }
     }
   }
@@ -584,18 +623,123 @@ class InventoryUI extends PositionComponent
   /// 處理鍵盤事件
   @override
   bool onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
-    // 使用數字鍵1-9快速使用物品
-    if (isVisible && event is KeyDownEvent) {
+    if (!isVisible) return super.onKeyEvent(event, keysPressed);
+
+    // 添加除錯輸出
+    print("【調試】物品欄接收到鍵盤事件: ${event.logicalKey}, 事件類型: ${event.runtimeType}");
+    print(
+      "【調試】背包可見: $isVisible, 綁定模式: $isBindingHotkey, 選中物品: $selectedItemIndex, 綁定物品: $bindingItemIndex",
+    );
+
+    if (event is KeyDownEvent) {
       final keyNumber = _getNumberFromKey(event.logicalKey);
+      print("【調試】解析的數字鍵: $keyNumber");
+
+      // 如果正在綁定模式且按下了1-4數字鍵
+      if (isBindingHotkey &&
+          bindingItemIndex != null &&
+          bindingItemIndex! < inventory.items.length &&
+          keyNumber != null &&
+          keyNumber >= 1 &&
+          keyNumber <= 4) {
+        final hotkeySlot = keyNumber - 1;
+        print("【調試】正在綁定模式中，將物品 $bindingItemIndex 綁定到熱鍵槽 $hotkeySlot");
+        bindSelectedItemToHotkey(hotkeySlot);
+        return true;
+      }
+      // 如果已選中物品並且按下了1-4數字鍵 (非綁定模式)
+      else if (selectedItemIndex != null &&
+          selectedItemIndex! < inventory.items.length &&
+          keyNumber != null &&
+          keyNumber >= 1 &&
+          keyNumber <= 4) {
+        final hotkeySlot = keyNumber - 1; // 轉換為0-3的索引
+        print("【調試】非綁定模式，嘗試綁定物品 $selectedItemIndex 到熱鍵槽 $hotkeySlot");
+        bindSelectedItemToHotkey(hotkeySlot);
+        return true;
+      }
+
+      // 一般模式 - 使用數字鍵1-9快速使用物品
       if (keyNumber != null &&
           keyNumber > 0 &&
           keyNumber <= inventory.items.length) {
+        print("【調試】使用物品索引: ${keyNumber - 1}");
         inventory.useItem(keyNumber - 1);
         return true;
       }
     }
 
-    return false;
+    return true; // 返回 true 確保事件在物品欄開啟時被處理並消費掉
+  }
+
+  /// 將選中的物品綁定到指定熱鍵槽位
+  void bindSelectedItemToHotkey(int hotkeySlot) {
+    if (selectedItemIndex == null ||
+        selectedItemIndex! >= inventory.items.length) {
+      print("【調試】綁定失敗：無效的物品索引 $selectedItemIndex");
+      return;
+    }
+
+    final item = inventory.items[selectedItemIndex!];
+    print("【調試】嘗試綁定物品: ${item.name}，類型: ${item.type}，到熱鍵槽: $hotkeySlot");
+
+    // 獲取HotkeysHud實例
+    final hotkeysHud = game.hotkeysHud;
+    if (hotkeysHud == null) {
+      print("【調試】錯誤: hotkeysHud為空");
+      return;
+    }
+
+    if (item.type == ItemType.weapon) {
+      // 如果是武器物品，檢查玩家是否擁有此武器
+      final weaponItem = item as WeaponItem;
+      print("【調試】武器類型: ${weaponItem.weapon.runtimeType}");
+      print(
+        "【調試】玩家擁有的武器: ${game.player.weapons.map((w) => w.runtimeType).toList()}",
+      );
+
+      final weaponIndex = game.player.weapons.indexWhere(
+        (w) => w.runtimeType == weaponItem.weapon.runtimeType,
+      );
+      print("【調試】找到武器索引: $weaponIndex");
+
+      if (weaponIndex >= 0) {
+        // 玩家已有此武器，綁定到熱鍵
+        print(
+          "【調試】綁定武器 ${game.player.weapons[weaponIndex].name} 到熱鍵槽 $hotkeySlot",
+        );
+        hotkeysHud.setWeaponHotkey(
+          hotkeySlot,
+          game.player.weapons[weaponIndex],
+          weaponIndex,
+        );
+        _showBindSuccessMessage(item.name, hotkeySlot);
+      } else {
+        // 玩家尚未擁有此武器，無法綁定
+        print("【調試】無法綁定: 玩家未擁有此武器");
+        _showMessage("必須先裝備此武器才能添加到熱鍵");
+      }
+    } else {
+      // 如果是消耗品或其他類型物品，直接添加到熱鍵
+      print("【調試】綁定消耗品 ${item.name} 到熱鍵槽 $hotkeySlot");
+      hotkeysHud.setConsumableHotkey(hotkeySlot, item);
+      _showBindSuccessMessage(item.name, hotkeySlot);
+    }
+
+    // 綁定後關閉綁定模式
+    isBindingHotkey = false;
+    bindingItemIndex = null;
+    print("【調試】綁定完成，已退出綁定模式");
+  }
+
+  /// 顯示成功綁定的消息
+  void _showBindSuccessMessage(String itemName, int hotkeySlot) {
+    _showMessage("已將 $itemName 綁定至熱鍵 ${hotkeySlot + 1}");
+  }
+
+  /// 顯示消息
+  void _showMessage(String message) {
+    game.showMessage(message);
   }
 
   /// 從按鍵獲取數字（1-9）

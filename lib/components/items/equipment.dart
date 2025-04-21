@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'item.dart';
 
 /// 裝備欄位系統：管理玩家的裝備
@@ -59,13 +58,13 @@ class Equipment {
     };
 
     // 累加所有裝備的屬性
-    slots.values.forEach((item) {
+    for (var item in slots.values) {
       if (item != null && item.stats != null) {
         item.stats!.forEach((key, value) {
           stats[key] = (stats[key] ?? 0) + value;
         });
       }
-    });
+    }
 
     return stats;
   }

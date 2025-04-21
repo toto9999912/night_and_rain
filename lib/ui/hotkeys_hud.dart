@@ -1,8 +1,13 @@
 import 'package:flame/components.dart';
+import 'package:flame/sprite.dart';
+import 'package:flame/flame.dart';
 import 'package:flutter/material.dart';
 
 import '../components/items/item.dart';
 import '../components/weapons/weapon.dart';
+import '../components/weapons/pistol.dart';
+import '../components/weapons/shotgun.dart';
+import '../components/weapons/machine_gun.dart';
 import '../main.dart';
 import '../player.dart';
 
@@ -53,6 +58,9 @@ class HotkeysHud extends PositionComponent
   // 選中的槽位 (從 0 開始，-1 表示沒有選中)
   int selectedSlot = -1;
 
+  // 武器和物品的精靈圖
+  SpriteSheet? _spriteSheet;
+
   HotkeysHud() : super(priority: 10) {
     // 設定在畫面底部
     size = Vector2(
@@ -69,18 +77,41 @@ class HotkeysHud extends PositionComponent
       game.size.y - slotSize - 20,
     );
 
-    // 初始化快捷鍵槽位，預設綁定武器
-    _initDefaultWeaponHotkeys();
+    // 載入物品精靈圖表
+    await _loadSpriteSheet();
+
+    // 延遲初始化快捷鍵直到確保玩家武器已載入
+    Future.delayed(Duration(milliseconds: 300), () {
+      _initDefaultWeaponHotkeys();
+    });
 
     await super.onLoad();
   }
 
+  /// 載入物品精靈圖表
+  Future<void> _loadSpriteSheet() async {
+    try {
+      final image = await Flame.images.load('item_pack.png');
+      _spriteSheet = SpriteSheet(image: image, srcSize: Vector2(24, 24));
+      print("物品精靈圖載入成功");
+    } catch (e) {
+      print("載入物品精靈圖失敗: $e");
+    }
+  }
+
   /// 初始化預設武器快捷鍵
   void _initDefaultWeaponHotkeys() {
+    print("初始化預設武器快捷鍵，玩家武器數量: ${player.combat.weapons.length}");
     // 綁定前三個槽位為玩家的武器
-    for (int i = 0; i < player.weapons.length && i < 3; i++) {
-      final weapon = player.weapons[i];
+    for (int i = 0; i < player.combat.weapons.length && i < 3; i++) {
+      final weapon = player.combat.weapons[i];
+      print("綁定默認武器: ${weapon.name} 到熱鍵槽 $i");
       setWeaponHotkey(i, weapon, i);
+    }
+
+    // 設置第一個熱鍵為選中狀態
+    if (player.combat.weapons.isNotEmpty) {
+      selectedSlot = 0;
     }
   }
 
@@ -94,11 +125,12 @@ class HotkeysHud extends PositionComponent
           ..color = Colors.grey
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2.0;
-    final selectedPaint =
-        Paint()
-          ..color = Colors.yellow
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 3.0;
+    // 移除選中槽位的高亮繪製邏輯
+    // final selectedPaint =
+    //     Paint()
+    //       ..color = Colors.yellow
+    //       ..style = PaintingStyle.stroke
+    //       ..strokeWidth = 3.0;
 
     // 繪製背景
     final bgRect = Rect.fromLTWH(0, 0, size.x, size.y);
@@ -120,10 +152,10 @@ class HotkeysHud extends PositionComponent
       // 繪製槽位
       final slotRect = Rect.fromLTWH(x, 0, slotSize, slotSize);
 
-      // 如果這是當前選中的槽位，用特殊顏色標記
-      if (i == selectedSlot) {
-        canvas.drawRect(slotRect, selectedPaint);
-      }
+      // 移除選中槽位的高亮標記
+      // if (i == selectedSlot) {
+      //   canvas.drawRect(slotRect, selectedPaint);
+      // }
 
       // 繪製槽位號碼
       _drawText(
@@ -137,27 +169,54 @@ class HotkeysHud extends PositionComponent
 
       // 如果有綁定物品，繪製相應信息
       final hotkey = hotkeys[i];
-      if (!hotkey.isEmpty) {
-        // 繪製彩色指示器，表示物品類型
-        final indicatorPaint = Paint()..color = hotkey.color;
-        canvas.drawRect(Rect.fromLTWH(x + 4, 4, 5, 5), indicatorPaint);
-
-        // 繪製物品名稱或表示
-        String itemText = '';
-        Color textColor = Colors.white;
-
+      if (!hotkey.isEmpty && _spriteSheet != null) {
+        // 繪製物品圖示
         switch (hotkey.type) {
           case HotkeyItemType.weapon:
             final weapon = hotkey.item as Weapon;
-            itemText = weapon.name;
-            // 如果這是當前選中的武器，使用不同顏色
-            if (hotkey.weaponIndex == player.currentWeaponIndex) {
-              textColor = Colors.yellow;
+            // 根據武器類型獲取對應圖示
+            int spriteX = 0;
+            int spriteY = 0;
+
+            if (weapon is Pistol) {
+              spriteX = 0;
+              spriteY = 0;
+            } else if (weapon is Shotgun) {
+              spriteX = 1;
+              spriteY = 0;
+            } else if (weapon is MachineGun) {
+              spriteX = 2;
+              spriteY = 0;
             }
+
+            // 繪製武器圖示
+            final weaponSprite = _spriteSheet!.getSprite(spriteX, spriteY);
+            final iconSize = slotSize * 0.7;
+            weaponSprite.render(
+              canvas,
+              position: Vector2(
+                x + (slotSize - iconSize) / 2,
+                (slotSize - iconSize) / 2,
+              ),
+              size: Vector2.all(iconSize),
+            );
+
             break;
           case HotkeyItemType.consumable:
             final item = hotkey.item as Item;
-            itemText = item.name;
+            // 如果物品有精靈圖，直接使用
+            if (item.sprite != null) {
+              final iconSize = slotSize * 0.7;
+              item.sprite!.render(
+                canvas,
+                position: Vector2(
+                  x + (slotSize - iconSize) / 2,
+                  (slotSize - iconSize) / 2,
+                ),
+                size: Vector2.all(iconSize),
+              );
+            }
+
             // 如果是可堆疊物品且數量大於1，顯示數量
             if (item.isStackable && item.quantity > 1) {
               _drawText(
@@ -171,21 +230,9 @@ class HotkeysHud extends PositionComponent
             }
             break;
           case HotkeyItemType.none:
-            itemText = '空';
-            textColor = Colors.grey;
+            // 空槽位不顯示圖示
             break;
         }
-
-        // 在槽位中央繪製物品名稱
-        _drawText(
-          canvas,
-          itemText,
-          Vector2(x + slotSize / 2, slotSize / 2),
-          align: TextAlign.center,
-          fontSize: 10,
-          color: textColor,
-          maxWidth: slotSize - 4,
-        );
       }
     }
   }
@@ -256,9 +303,7 @@ class HotkeysHud extends PositionComponent
     if (slot < 0 || slot >= hotkeyCount) return;
 
     // 檢查UI是否開啟，如果開啟則禁止使用快捷鍵
-    if (player.inventoryUI.isVisible ||
-        player.characterPanel.isVisible ||
-        player.dialogueSystem.isVisible) {
+    if (player.inventory.isUIVisible) {
       return;
     }
 
@@ -294,9 +339,9 @@ class HotkeysHud extends PositionComponent
       final hotkey = hotkeys[i];
       if (hotkey.type == HotkeyItemType.weapon && hotkey.weaponIndex != null) {
         final weaponIndex = hotkey.weaponIndex!;
-        if (weaponIndex < player.weapons.length) {
+        if (weaponIndex < player.combat.weapons.length) {
           // 更新武器引用
-          final weapon = player.weapons[weaponIndex];
+          final weapon = player.combat.weapons[weaponIndex];
           hotkeys[i] = HotkeyItem.weapon(
             weapon,
             weaponIndex,

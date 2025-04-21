@@ -294,7 +294,7 @@ class NPCFactory {
       dialogues: ['今天天氣真好啊！', '你好，旅行者！', '我家在村子的東邊。', '這個村子最近很和平。'],
       greetings: ['早安！', '今天真好！', '你好啊！'],
       collisionCheck: collisionCheck,
-      canTalk: true,
+      canTalk: false,
     );
   }
 
