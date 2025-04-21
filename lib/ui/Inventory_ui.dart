@@ -219,15 +219,15 @@ class InventoryUI extends PositionComponent with TapCallbacks, KeyboardHandler, 
   // 控制器 - 使用可空類型，並添加一個安全的 getter
   InventoryUIController? _controller;
   InventoryUIController get controller {
-    // 如果 _controller 為 null，嘗試創建一個臨時控制器
     if (_controller == null) {
       try {
         print("【警告】嘗試訪問尚未初始化的 controller，創建臨時控制器");
+
         _controller = InventoryUIController(game: game, inventory: _inventory, equipment: _equipment);
       } catch (e) {
         print("【嚴重錯誤】無法創建臨時控制器: $e");
-        // 返回一個空的控制器作為後備
-        return InventoryUIController(game: game, inventory: _inventory, equipment: _equipment);
+        // 不要在getter中創建空控制器，而是拋出異常
+        throw Exception("無法創建庫存UI控制器: $e");
       }
     }
     return _controller!;
@@ -244,38 +244,38 @@ class InventoryUI extends PositionComponent with TapCallbacks, KeyboardHandler, 
 
   @override
   Future<void> onLoad() async {
-    // 在 onLoad 中初始化控制器，此時 game 應該已經可用
     try {
+      // 在 onLoad 中初始化控制器，此時 game 應該已經可用
       _controller = InventoryUIController(game: game, inventory: _inventory, equipment: _equipment);
       _isInitialized = true;
-    } catch (e) {
-      print("【錯誤】初始化 InventoryUIController 失敗: $e");
-    }
 
-    // 加載精靈圖
-    final spriteSheet = SpriteSheet(image: await Flame.images.load('item_pack.png'), srcSize: Vector2(24, 24));
+      // 加載精靈圖
+      final spriteSheet = SpriteSheet(image: await Flame.images.load('item_pack.png'), srcSize: Vector2(24, 24));
 
-    // 為每個物品加載對應的圖標
-    for (final item in controller.inventory.items) {
-      item.sprite = spriteSheet.getSprite(item.spriteX, item.spriteY);
-    }
-
-    // 為裝備中的物品也加載圖標
-    for (final equipSlot in controller.equipment.slots.keys) {
-      final item = controller.equipment.slots[equipSlot];
-      if (item != null && item.sprite == null) {
+      // 為每個物品加載對應的圖標
+      for (final item in _inventory.items) {
         item.sprite = spriteSheet.getSprite(item.spriteX, item.spriteY);
       }
+
+      // 為裝備中的物品也加載圖標
+      for (final equipSlot in _equipment.slots.keys) {
+        final item = _equipment.slots[equipSlot];
+        if (item != null && item.sprite == null) {
+          item.sprite = spriteSheet.getSprite(item.spriteX, item.spriteY);
+        }
+      }
+
+      // 設置背包UI的大小和位置 - 考慮裝備區域和角色狀態面板
+      size = Vector2(
+        itemsPerRow * (itemSize + spacing) + padding * 2 + 400, // 增加右側區域寬度
+        ((controller.inventory.maxSize / itemsPerRow).ceil()) * (itemSize + spacing) + padding * 2 + 50, // 增加高度以適應角色狀態
+      );
+
+      // 居中顯示
+      position = Vector2(game.size.x / 2 - size.x / 2, game.size.y / 2 - size.y / 2);
+    } catch (e) {
+      print("【錯誤】初始化 InventoryUI 失敗: $e");
     }
-
-    // 設置背包UI的大小和位置 - 考慮裝備區域和角色狀態面板
-    size = Vector2(
-      itemsPerRow * (itemSize + spacing) + padding * 2 + 400, // 增加右側區域寬度
-      ((controller.inventory.maxSize / itemsPerRow).ceil()) * (itemSize + spacing) + padding * 2 + 50, // 增加高度以適應角色狀態
-    );
-
-    // 居中顯示
-    position = Vector2(game.size.x / 2 - size.x / 2, game.size.y / 2 - size.y / 2);
 
     await super.onLoad();
   }
@@ -665,7 +665,17 @@ class InventoryUI extends PositionComponent with TapCallbacks, KeyboardHandler, 
   /// 對外方法代理到控制器
   void open() => controller.open();
   void close() => controller.close();
-  void toggle() => controller.toggle();
+  void toggle() {
+    try {
+      if (_isInitialized && _controller != null) {
+        _controller!.toggle();
+      } else {
+        print("【警告】嘗試切換背包顯示狀態，但控制器尚未初始化");
+      }
+    } catch (e) {
+      print("【錯誤】切換背包顯示狀態失敗: $e");
+    }
+  }
 
   /// 公開給外部調用的熱鍵綁定方法
   bool bindSelectedItemToHotkey(int hotkeySlot) => controller.bindSelectedItemToHotkey(hotkeySlot);

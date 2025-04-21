@@ -72,25 +72,36 @@ class NightAndRainGame extends FlameGame with KeyboardEvents, MouseMovementDetec
 
   @override
   Future<void> onLoad() async {
+    // 1. 基礎遊戲元素設置
     await _setupGameWorld();
-    await _setupPlayer();
     await _setupCamera();
-    await _setupManagers();
 
-    // 只創建 UI 組件但暫不添加到遊戲組件樹
-    player.inventory.prepareUIComponents();
+    // 2. 設置管理器，但不初始化HUD
+    await _setupManagersCore();
 
+    // 3. 玩家初始化（但不載入UI元素）
+    await _setupPlayer();
+    player.combat.initWeapons();
+
+    // 4. 在main onLoad完成前調用super.onLoad()
     await super.onLoad();
 
-    // 在所有組件加載完成後，添加 UI 組件到遊戲組件樹
-    await _initializeUIComponents();
+    // 5. 完成玩家和HUD完整初始化
+    await _initializePlayerUIComponents();
+
+    // 6. 初始化熱鍵和武器HUD
+    await _initializeHotkeys();
+
+    // 設置標記
+    _uiInitialized = true;
+
+    print("遊戲初始化完成");
   }
 
-  /// 在所有組件加載完成後初始化 UI 組件
-  Future<void> _initializeUIComponents() async {
-    // 添加玩家的 UI 組件到遊戲組件樹
-    await player.inventory.addUIComponentsToGame();
-    _uiInitialized = true;
+  /// 核心管理器設置 - 不包含需要玩家引用的部分
+  Future<void> _setupManagersCore() async {
+    inputManager = InputManager(this);
+    uiManager = UIManager(this);
   }
 
   /// 設置遊戲世界和所有地圖相關組件
@@ -103,6 +114,7 @@ class NightAndRainGame extends FlameGame with KeyboardEvents, MouseMovementDetec
   Future<void> _setupPlayer() async {
     player = Player(mapSize);
     gameWorld.add(player);
+    // 注意：這裡不調用player.inventory.prepareUIComponents()
   }
 
   /// 設置遊戲相機
@@ -112,11 +124,22 @@ class NightAndRainGame extends FlameGame with KeyboardEvents, MouseMovementDetec
     cameraComponent.follow(player);
   }
 
-  /// 設置各種管理器和系統
-  Future<void> _setupManagers() async {
-    inputManager = InputManager(this);
-    uiManager = UIManager(this);
+  /// 完整初始化玩家UI組件
+  Future<void> _initializePlayerUIComponents() async {
+    print("開始初始化玩家UI組件");
+    // 準備UI組件
+    player.inventory.initInventory();
+    player.inventory.initEquipment();
+    player.inventory.prepareUIComponents();
 
+    // 添加UI組件到遊戲，並等待其完成
+    await player.inventory.addUIComponentsToGame();
+    print("玩家UI組件初始化完成");
+  }
+
+  /// 初始化熱鍵和武器HUD
+  Future<void> _initializeHotkeys() async {
+    print("初始化熱鍵系統");
     // 初始化熱鍵系統
     hotkeysHud = HotkeysHud();
     await add(hotkeysHud);
@@ -129,9 +152,12 @@ class NightAndRainGame extends FlameGame with KeyboardEvents, MouseMovementDetec
     player.onWeaponsChanged = () {
       // 當玩家武器清單發生變化時更新熱鍵系統
       hotkeysHud.updateWeaponReferences();
-
-      // 不需要顯式更新 currentWeaponHud，因為它會自動檢測變化
     };
+
+    // 初始設置熱鍵槽位
+    hotkeysHud.updateWeaponReferences();
+
+    print("熱鍵系統初始化完成");
   }
 
   /// 顯示一條消息在螢幕上 - 代理到UI管理器

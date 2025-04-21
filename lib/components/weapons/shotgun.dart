@@ -10,7 +10,7 @@ class Shotgun extends Weapon {
   final int pelletCount; // 每次發射的彈丸數量
   final double spreadAngle; // 散射角度（弧度）
 
-  Shotgun({ItemRarity rarity = ItemRarity.common})
+  Shotgun({super.rarity})
     : pelletCount = 5,
       spreadAngle = 0.3,
       super(
@@ -20,33 +20,20 @@ class Shotgun extends Weapon {
         bulletSpeed: 450.0,
         bulletColor: Colors.redAccent,
         bulletSize: Vector2(12, 6),
-        rarity: rarity,
       );
 
   @override
   void performShoot(Vector2 position, double angle, NightAndRainGame gameRef) {
     final bulletOffset = 32.0;
-    final bulletPosition =
-        position + Vector2(math.cos(angle), math.sin(angle)) * bulletOffset;
+    final bulletPosition = position + Vector2(math.cos(angle), math.sin(angle)) * bulletOffset;
 
     // 計算散射角度
     for (int i = 0; i < pelletCount; i++) {
-      final spreadFactor =
-          -spreadAngle / 2 + (spreadAngle / (pelletCount - 1)) * i;
+      final spreadFactor = -spreadAngle / 2 + (spreadAngle / (pelletCount - 1)) * i;
       final adjustedAngle = angle + spreadFactor;
-      final bulletDirection = Vector2(
-        math.cos(adjustedAngle),
-        math.sin(adjustedAngle),
-      );
+      final bulletDirection = Vector2(math.cos(adjustedAngle), math.sin(adjustedAngle));
 
-      gameRef.gameWorld.addBullet(
-        bulletPosition,
-        bulletDirection,
-        bulletSpeed,
-        damage,
-        bulletColor: bulletColor,
-        bulletSize: bulletSize,
-      );
+      gameRef.gameWorld.addBullet(bulletPosition, bulletDirection, bulletSpeed, damage, bulletColor: bulletColor, bulletSize: bulletSize);
     }
   }
 

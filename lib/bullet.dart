@@ -12,31 +12,15 @@ class Bullet extends PositionComponent with HasGameRef<NightAndRainGame> {
   bool shouldRemove = false;
   double lifespan = 2.0; // 子彈存活時間（秒）
 
-  Bullet({
-    required Vector2 position,
-    required this.direction,
-    this.speed = 500.0,
-    this.damage = 10.0,
-    Color? bulletColor,
-    Vector2? bulletSize,
-  }) : bulletColor = bulletColor ?? Colors.amberAccent,
-       bulletSize = bulletSize ?? Vector2(16, 8),
-       super(
-         position: position,
-         size: bulletSize ?? Vector2(16, 8),
-         anchor: Anchor.center,
-       );
+  Bullet({required Vector2 position, required this.direction, this.speed = 500.0, this.damage = 10.0, Color? bulletColor, Vector2? bulletSize})
+    : bulletColor = bulletColor ?? Colors.amberAccent,
+      bulletSize = bulletSize ?? Vector2(16, 8),
+      super(position: position, size: bulletSize ?? Vector2(16, 8), anchor: Anchor.center);
 
   @override
   Future<void> onLoad() async {
     // 繪製矩形作為子彈
-    add(
-      RectangleComponent(
-        size: size,
-        paint: Paint()..color = bulletColor,
-        anchor: Anchor.center,
-      ),
-    );
+    add(RectangleComponent(size: size, paint: Paint()..color = bulletColor, anchor: Anchor.center));
 
     angle = direction.angleToSigned(Vector2(1, 0));
 
@@ -66,12 +50,7 @@ class Bullet extends PositionComponent with HasGameRef<NightAndRainGame> {
 
   void _createHitEffect() {
     // 撞擊效果，使用子彈顏色
-    final effect = CircleComponent(
-      radius: 10,
-      paint: Paint()..color = bulletColor.withOpacity(0.7),
-      position: position,
-      anchor: Anchor.center,
-    );
+    final effect = CircleComponent(radius: 10, paint: Paint()..color = bulletColor.withValues(alpha: 0.7), position: position, anchor: Anchor.center);
 
     gameRef.gameWorld.add(effect);
 

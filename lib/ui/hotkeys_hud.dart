@@ -56,14 +56,18 @@ class HotkeysHud extends PositionComponent with HasGameReference<NightAndRainGam
 
   @override
   Future<void> onLoad() async {
-    // 根據螢幕尺寸調整位置，放在畫面底部中央
-    position = Vector2(game.size.x / 2 - size.x / 2, game.size.y - slotSize - 20);
+    try {
+      // 根據螢幕尺寸調整位置，放在畫面底部中央
+      position = Vector2(game.size.x / 2 - size.x / 2, game.size.y - slotSize - 20);
 
-    // 載入物品精靈圖表
-    await _loadSpriteSheet();
+      // 載入物品精靈圖表
+      await _loadSpriteSheet();
 
-    // 初始化武器熱鍵，不再使用不可靠的延遲加載
-    _initDefaultWeaponHotkeys();
+      // 初始化武器熱鍵延遲到首次更新
+      // 不再在onLoad中調用_initDefaultWeaponHotkeys()
+    } catch (e) {
+      print("【錯誤】初始化HotkeysHud失敗: $e");
+    }
 
     await super.onLoad();
   }
@@ -81,17 +85,21 @@ class HotkeysHud extends PositionComponent with HasGameReference<NightAndRainGam
 
   /// 初始化預設武器快捷鍵
   void _initDefaultWeaponHotkeys() {
-    print("初始化預設武器快捷鍵，玩家武器數量: ${player.combat.weapons.length}");
-    // 綁定前三個槽位為玩家的武器
-    for (int i = 0; i < player.combat.weapons.length && i < 3; i++) {
-      final weapon = player.combat.weapons[i];
-      print("綁定默認武器: ${weapon.name} 到熱鍵槽 $i");
-      setWeaponHotkey(i, weapon, i);
-    }
+    try {
+      print("初始化預設武器快捷鍵，玩家武器數量: ${player.combat.weapons.length}");
+      // 綁定前三個槽位為玩家的武器
+      for (int i = 0; i < player.combat.weapons.length && i < 3; i++) {
+        final weapon = player.combat.weapons[i];
+        print("綁定默認武器: ${weapon.name} 到熱鍵槽 $i");
+        setWeaponHotkey(i, weapon, i);
+      }
 
-    // 設置第一個熱鍵為選中狀態
-    if (player.combat.weapons.isNotEmpty) {
-      selectedSlot = 0;
+      // 設置第一個熱鍵為選中狀態
+      if (player.combat.weapons.isNotEmpty) {
+        selectedSlot = 0;
+      }
+    } catch (e) {
+      print("【錯誤】初始化預設武器快捷鍵時發生錯誤: $e");
     }
   }
 
@@ -268,26 +276,30 @@ class HotkeysHud extends PositionComponent with HasGameReference<NightAndRainGam
   void updateWeaponReferences() {
     print("更新熱鍵武器引用，目前玩家武器數量: ${player.combat.weapons.length}");
 
-    for (int i = 0; i < hotkeyCount; i++) {
-      final hotkey = hotkeys[i];
-      if (hotkey.type == HotkeyItemType.weapon && hotkey.weaponIndex != null) {
-        final weaponIndex = hotkey.weaponIndex!;
-        if (weaponIndex < player.combat.weapons.length) {
-          // 更新武器引用
-          final weapon = player.combat.weapons[weaponIndex];
-          print("更新熱鍵槽 $i 的武器引用: ${weapon.name}");
-          hotkeys[i] = HotkeyItem.weapon(weapon, weaponIndex, name: weapon.name);
-        } else {
-          // 武器不存在了，清除槽位
-          print("清除熱鍵槽 $i，原武器索引 $weaponIndex 超出範圍");
-          clearHotkey(i);
+    try {
+      for (int i = 0; i < hotkeyCount; i++) {
+        final hotkey = hotkeys[i];
+        if (hotkey.type == HotkeyItemType.weapon && hotkey.weaponIndex != null) {
+          final weaponIndex = hotkey.weaponIndex!;
+          if (weaponIndex < player.combat.weapons.length) {
+            // 更新武器引用
+            final weapon = player.combat.weapons[weaponIndex];
+            print("更新熱鍵槽 $i 的武器引用: ${weapon.name}");
+            hotkeys[i] = HotkeyItem.weapon(weapon, weaponIndex, name: weapon.name);
+          } else {
+            // 武器不存在了，清除槽位
+            print("清除熱鍵槽 $i，原武器索引 $weaponIndex 超出範圍");
+            clearHotkey(i);
+          }
         }
       }
-    }
 
-    // 檢查當前選中槽位是否有效，否則重置
-    if (selectedSlot != -1 && (selectedSlot >= hotkeyCount || hotkeys[selectedSlot].isEmpty)) {
-      resetSelectedSlot();
+      // 檢查當前選中槽位是否有效，否則重置
+      if (selectedSlot != -1 && (selectedSlot >= hotkeyCount || hotkeys[selectedSlot].isEmpty)) {
+        resetSelectedSlot();
+      }
+    } catch (e) {
+      print("【錯誤】更新熱鍵武器引用時發生錯誤: $e");
     }
   }
 
@@ -310,5 +322,20 @@ class HotkeysHud extends PositionComponent with HasGameReference<NightAndRainGam
   /// 選擇上一個槽位
   void selectPrevSlot() {
     selectedSlot = (selectedSlot - 1 + hotkeyCount) % hotkeyCount;
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+
+    // 初次更新時初始化熱鍵
+    bool firstUpdate = true;
+    if (firstUpdate) {
+      firstUpdate = false;
+      // 延遲初始化，確保player和weapons已準備好
+      Future.delayed(Duration(milliseconds: 100), () {
+        _initDefaultWeaponHotkeys();
+      });
+    }
   }
 }

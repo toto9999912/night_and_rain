@@ -1,4 +1,5 @@
 /// 遊戲中所有的枚舉類型定義
+library;
 
 /// NPC類型枚舉 - 用於更容易地生成特定類型的NPC
 enum NPCType { villager, merchant, guard }

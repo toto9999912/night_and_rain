@@ -114,6 +114,22 @@ class PlayerInventory {
     inventory.addItem(shotgunItem);
   }
 
+  // 添加安全獲取控制器的方法
+  InventoryUIController? getSafeController() {
+    // 確保 inventoryUI 已初始化
+    if (!_uiInitialized) {
+      print("【警告】UI 組件尚未初始化，無法獲取控制器");
+      return null;
+    }
+
+    try {
+      return inventoryUI.controller;
+    } catch (e) {
+      print("【錯誤】獲取控制器失敗: $e");
+      return null;
+    }
+  }
+
   /// 切換背包顯示狀態
   bool toggleInventory() {
     // 安全檢查：如果UI組件尚未初始化，則不執行操作並返回false
@@ -129,7 +145,7 @@ class PlayerInventory {
       }
 
       inventoryUI.toggle();
-      return inventoryUI.controller.isVisible;
+      return getSafeController()?.isVisible ?? false;
     } catch (e) {
       print("【UI錯誤】切換背包顯示狀態時發生錯誤: $e");
       return false;
@@ -219,11 +235,15 @@ class PlayerInventory {
 
   /// 檢查UI是否開啟
   bool get isUIVisible {
-    // 安全檢查：如果UI組件尚未初始化或controller未初始化，則返回false
+    // 安全檢查：如果UI組件尚未初始化，則返回false
     if (!_uiInitialized) return false;
 
     try {
-      return inventoryUI.controller.isVisible || characterPanel.isVisible || dialogueSystem.isVisible;
+      final inventoryVisible = getSafeController()?.isVisible ?? false;
+      final characterPanelVisible = characterPanel.isVisible;
+      final dialogueVisible = dialogueSystem.isVisible;
+
+      return inventoryVisible || characterPanelVisible || dialogueVisible;
     } catch (e) {
       // 如果任何UI組件尚未完全初始化，則返回false
       print("【UI錯誤】UI組件尚未完全初始化: $e");

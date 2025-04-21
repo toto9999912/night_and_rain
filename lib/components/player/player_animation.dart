@@ -34,22 +34,12 @@ class PlayerAnimation {
         // 跳過最後一格 (2,2) 因為它是空白的
         if (y == 2 && x == 2) continue;
 
-        allSprites.add(
-          Sprite(
-            image,
-            srcPosition: Vector2(x * spriteSize.x, y * spriteSize.y),
-            srcSize: spriteSize,
-          ),
-        );
+        allSprites.add(Sprite(image, srcPosition: Vector2(x * spriteSize.x, y * spriteSize.y), srcSize: spriteSize));
       }
     }
 
     // 創建動畫 - 所有狀態暫時使用相同的動畫
-    final commonAnimation = SpriteAnimation.spriteList(
-      allSprites,
-      stepTime: animStepTime,
-      loop: true,
-    );
+    final commonAnimation = SpriteAnimation.spriteList(allSprites, stepTime: animStepTime, loop: true);
 
     // 使用同一動畫用於所有狀態
     animations = {
@@ -100,12 +90,8 @@ class PlayerAnimation {
     }
   }
 
-  void adjustWalkingAnimationSpeed(
-    Vector2 velocity,
-    double maxSpeed,
-    double gameTime,
-  ) {
-    if (currentState == PlayerState.walking && animations != null) {
+  void adjustWalkingAnimationSpeed(Vector2 velocity, double maxSpeed, double gameTime) {
+    if (currentState == PlayerState.walking) {
       // 根據實際移動速度調整動畫速度
       final speedRatio = velocity.length / maxSpeed;
       final newStepTime = originalWalkingStepTime / math.max(0.5, speedRatio);
@@ -123,10 +109,7 @@ class PlayerAnimation {
 
   void blendToIdle(double idleRatio, double gameTime) {
     // 調整動畫速度
-    animations[PlayerState.walking]!.stepTime = math.max(
-      originalWalkingStepTime,
-      originalWalkingStepTime + idleRatio * 0.1,
-    );
+    animations[PlayerState.walking]!.stepTime = math.max(originalWalkingStepTime, originalWalkingStepTime + idleRatio * 0.1);
 
     // 添加微小的"呼吸"效果
     final breathEffect = math.sin(gameTime * 2) * 0.01 * idleRatio;
