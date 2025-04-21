@@ -105,10 +105,16 @@ class NightAndRainGame extends FlameGame with KeyboardEvents, MouseMovementDetec
     hotkeysHud = HotkeysHud();
     await add(hotkeysHud);
 
-    // 確保玩家武器變化時更新熱鍵
+    // 初始化當前武器顯示
+    CurrentWeaponHud currentWeaponHud = CurrentWeaponHud();
+    await add(currentWeaponHud);
+
+    // 設置玩家武器變更事件通知
     player.onWeaponsChanged = () {
       // 當玩家武器清單發生變化時更新熱鍵系統
       hotkeysHud.updateWeaponReferences();
+
+      // 不需要顯式更新 currentWeaponHud，因為它會自動檢測變化
     };
   }
 

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flame/components.dart';
+import 'package:night_and_rain/player.dart';
 import '../../main.dart';
 import '../weapons/weapon.dart';
 import '../weapons/pistol.dart';
@@ -21,10 +22,10 @@ class PlayerCombat {
   Weapon get currentWeapon => weapons[currentWeaponIndex];
 
   // 參考主玩家實例
-  final player; // Player 類型，存儲對 Player 實例的引用
+  final Player player;
 
   // 參考遊戲主類
-  final HasGameReference<NightAndRainGame> gameRef;
+  final NightAndRainGame game;
 
   // 生命值和魔法值系統
   int maxHealth;
@@ -47,7 +48,8 @@ class PlayerCombat {
   bool isDead = false;
 
   PlayerCombat({
-    required this.gameRef,
+    required HasGameReference<NightAndRainGame> gameRef,
+    required this.player,
     this.maxHealth = 100,
     this.maxMana = 100,
     this.attack = 10.0,
@@ -58,7 +60,7 @@ class PlayerCombat {
     this.experienceToNextLevel = 100,
     this.manaRegenRate = 0.5,
     this.healthRegenRate = 1.0,
-  }) : player = gameRef, // 在构造函数中将 gameRef 赋值给 player
+  }) : game = gameRef.game,
        currentHealth = maxHealth,
        currentMana = maxMana;
 
@@ -82,7 +84,7 @@ class PlayerCombat {
     if (isShooting && !isDead) {
       final manaCost = getCurrentWeaponManaCost();
       if (currentMana >= manaCost) {
-        if (currentWeapon.shoot(playerPosition, weaponAngle, gameRef.game)) {
+        if (currentWeapon.shoot(playerPosition, weaponAngle, game)) {
           useMana(manaCost);
         }
       } else {
@@ -140,13 +142,18 @@ class PlayerCombat {
   bool switchWeapon(int index) {
     if (index < 0 || index >= weapons.length) return false;
 
+    // 儲存舊的武器索引以便進行比較
+    final oldWeaponIndex = currentWeaponIndex;
     currentWeaponIndex = index;
 
-    // 更新熱鍵系統中顯示的當前選中武器
-    gameRef.game.hotkeysHud.selectedSlot = gameRef.game.hotkeysHud.hotkeys.indexWhere((hotkey) => hotkey.weaponIndex == index);
+    // 只有在武器實際變更時才觸發通知
+    if (oldWeaponIndex != currentWeaponIndex) {
+      // 通知武器變更
+      _notifyWeaponsChanged();
+    }
 
-    // 通知武器變更
-    _notifyWeaponsChanged();
+    // 更新熱鍵系統中顯示的當前選中武器
+    game.hotkeysHud.selectedSlot = game.hotkeysHud.hotkeys.indexWhere((hotkey) => hotkey.weaponIndex == index);
 
     return true;
   }
@@ -185,9 +192,10 @@ class PlayerCombat {
 
   /// 通知武器列表已變更
   void _notifyWeaponsChanged() {
-    // 使用 player 而非 gameRef 來訪問 _onWeaponsChanged
-    if (player._onWeaponsChanged != null) {
-      player._onWeaponsChanged!();
+    // 透過 player 參數訪問 onWeaponsChanged
+    final callback = player.onWeaponsChanged;
+    if (callback != null) {
+      callback();
     }
   }
 

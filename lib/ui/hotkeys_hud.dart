@@ -105,16 +105,7 @@ class HotkeysHud extends PositionComponent with HasGameReference<NightAndRainGam
           ..color = Colors.grey
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2.0;
-    // 恢復選中槽位的高亮繪製邏輯
-    final selectedPaint =
-        Paint()
-          ..color = Colors.yellow.withOpacity(0.3)
-          ..style = PaintingStyle.fill;
-    final selectedBorderPaint =
-        Paint()
-          ..color = Colors.yellow
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.5;
+    // 移除選中槽位的高亮繪製邏輯，不再使用 selectedPaint 和 selectedBorderPaint
 
     // 繪製背景
     final bgRect = Rect.fromLTWH(0, 0, size.x, size.y);
@@ -130,11 +121,7 @@ class HotkeysHud extends PositionComponent with HasGameReference<NightAndRainGam
       // 繪製槽位
       final slotRect = Rect.fromLTWH(x, 0, slotSize, slotSize);
 
-      // 恢復選中槽位的高亮標記
-      if (i == selectedSlot) {
-        canvas.drawRect(slotRect, selectedPaint);
-        canvas.drawRect(slotRect, selectedBorderPaint);
-      }
+      // 移除選中槽位高亮的繪製邏輯
 
       // 繪製槽位號碼
       _drawText(canvas, '${i + 1}', Vector2(x + slotSize - 8, 8), align: TextAlign.right, fontSize: 14, bold: true);
@@ -257,7 +244,7 @@ class HotkeysHud extends PositionComponent with HasGameReference<NightAndRainGam
         // 切換到對應武器
         if (hotkey.weaponIndex != null) {
           player.switchWeapon(hotkey.weaponIndex!);
-          // 更新選中的槽位
+          // 僅記錄內部狀態，不處理視覺效果
           selectedSlot = slot;
         }
         break;

@@ -33,6 +33,9 @@ class Player extends SpriteAnimationGroupComponent<PlayerState> with HasGameRefe
     _onWeaponsChanged = callback;
   }
 
+  // 添加公開的 getter 以便從外部類別訪問
+  Function? get onWeaponsChanged => _onWeaponsChanged;
+
   Player(this.mapSize) : super(size: Vector2.all(128), anchor: Anchor.center, position: Vector2(1000, 1000));
 
   @override
@@ -54,8 +57,8 @@ class Player extends SpriteAnimationGroupComponent<PlayerState> with HasGameRefe
     // 初始化移動系統
     movement = PlayerMovement(component: this, mapSize: mapSize);
 
-    // 初始化戰鬥系統
-    combat = PlayerCombat(gameRef: this);
+    // 初始化戰鬥系統（修正傳入 player 參數）
+    combat = PlayerCombat(gameRef: this, player: this);
 
     // 初始化對話系統（臨時創建，後面會替換）
     final tempDialogueSystem = DialogueSystem();
@@ -159,7 +162,13 @@ class Player extends SpriteAnimationGroupComponent<PlayerState> with HasGameRefe
   }
 
   void switchWeapon(int index) {
-    combat.switchWeapon(index);
+    if (combat.switchWeapon(index)) {
+      // 當武器成功切換後，會觸發 combat 中的 _notifyWeaponsChanged
+      // 該方法會調用 onWeaponsChanged 回調，從而通知熱鍵系統更新
+
+      // 這裡我們不需要直接操作 HotkeysHud 和 CurrentWeaponHud
+      // 因為它們會透過事件機制接收更新通知
+    }
   }
 
   void shoot() {

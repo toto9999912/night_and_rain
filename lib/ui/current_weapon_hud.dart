@@ -9,10 +9,10 @@ import '../components/weapons/shotgun.dart';
 import '../components/weapons/machine_gun.dart';
 import '../main.dart';
 import '../player.dart';
+import 'hotkeys_hud.dart';
 
 /// 當前武器 HUD 組件，顯示玩家目前使用的武器
-class CurrentWeaponHud extends PositionComponent
-    with HasGameReference<NightAndRainGame> {
+class CurrentWeaponHud extends PositionComponent with HasGameReference<NightAndRainGame> {
   // 將靜態成員重命名，避免與 PositionComponent 衝突
   static const double hudWidth = 160.0;
   static const double hudHeight = 60.0;
@@ -28,6 +28,13 @@ class CurrentWeaponHud extends PositionComponent
   double _animationProgress = 0;
   bool _isAnimating = false;
   String _lastWeaponName = '';
+
+  // 添加熱鍵索引顯示
+  int? weaponHotkeyNumber;
+
+  // 武器切換動畫相關參數
+  final double _animationDuration = 0.3; // 動畫持續時間（秒）
+  Weapon? _previousWeapon;
 
   CurrentWeaponHud() : super(priority: 10) {
     // 使用新命名的靜態常量
@@ -60,6 +67,9 @@ class CurrentWeaponHud extends PositionComponent
   void update(double dt) {
     super.update(dt);
 
+    // 更新當前武器對應的熱鍵編號
+    weaponHotkeyNumber = _findWeaponHotkey();
+
     // 如果正在播放切換動畫
     if (_isAnimating) {
       _animationProgress += dt * 3; // 控制動畫速度
@@ -71,12 +81,47 @@ class CurrentWeaponHud extends PositionComponent
     }
 
     // 檢查武器是否已更改
-    if (player.combat.weapons.isNotEmpty &&
-        player.currentWeapon.name != _lastWeaponName) {
+    if (player.combat.weapons.isNotEmpty && player.currentWeapon.name != _lastWeaponName) {
       _lastWeaponName = player.currentWeapon.name;
       _isAnimating = true;
       _animationProgress = 0;
     }
+
+    // 檢查武器是否變化，如果變化則啟動動畫
+    if (!_isAnimating && _previousWeapon != game.player.currentWeapon) {
+      _startWeaponChangeAnimation();
+    }
+
+    // 更新武器切換動畫
+    if (_isAnimating) {
+      _animationProgress += dt / _animationDuration;
+      if (_animationProgress >= 1.0) {
+        _isAnimating = false;
+        _animationProgress = 0.0;
+        _previousWeapon = game.player.currentWeapon;
+      }
+    }
+  }
+
+  // 啟動武器切換動畫
+  void _startWeaponChangeAnimation() {
+    _isAnimating = true;
+    _animationProgress = 0.0;
+    _previousWeapon = game.player.currentWeapon;
+  }
+
+  // 查找當前武器的熱鍵編號
+  int? _findWeaponHotkey() {
+    final hotkeysHud = game.hotkeysHud;
+    final currentWeaponIndex = game.player.combat.currentWeaponIndex;
+
+    for (int i = 0; i < HotkeysHud.hotkeyCount; i++) {
+      final hotkey = hotkeysHud.hotkeys[i];
+      if (hotkey.type == HotkeyItemType.weapon && hotkey.weaponIndex == currentWeaponIndex) {
+        return i + 1; // 返回1-4的熱鍵編號
+      }
+    }
+    return null;
   }
 
   @override
@@ -96,14 +141,8 @@ class CurrentWeaponHud extends PositionComponent
 
     // 使用新命名的靜態常量
     final bgRect = Rect.fromLTWH(0, 0, hudWidth, hudHeight);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(bgRect, const Radius.circular(10)),
-      bgPaint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(bgRect, const Radius.circular(10)),
-      borderPaint,
-    );
+    canvas.drawRRect(RRect.fromRectAndRadius(bgRect, const Radius.circular(10)), bgPaint);
+    canvas.drawRRect(RRect.fromRectAndRadius(bgRect, const Radius.circular(10)), borderPaint);
 
     // 獲取當前武器
     final currentWeapon = player.currentWeapon;
@@ -139,10 +178,7 @@ class CurrentWeaponHud extends PositionComponent
     final scaledIconSize = iconSize * scale;
     weaponSprite.render(
       canvas,
-      position: Vector2(
-        10 + (iconSize - scaledIconSize) / 2,
-        (hudHeight - scaledIconSize) / 2,
-      ),
+      position: Vector2(10 + (iconSize - scaledIconSize) / 2, (hudHeight - scaledIconSize) / 2),
       size: Vector2.all(scaledIconSize),
     );
 
@@ -158,13 +194,12 @@ class CurrentWeaponHud extends PositionComponent
     );
 
     // 繪製武器類型
-    _drawText(
-      canvas,
-      _getWeaponTypeText(currentWeapon),
-      Vector2(iconSize + 20, 40),
-      fontSize: 14,
-      align: TextAlign.left,
-    );
+    _drawText(canvas, _getWeaponTypeText(currentWeapon), Vector2(iconSize + 20, 40), fontSize: 14, align: TextAlign.left);
+
+    // 顯示對應的熱鍵編號(如果有)
+    if (weaponHotkeyNumber != null) {
+      _drawText(canvas, "[${weaponHotkeyNumber}]", Vector2(size.x - 10, 20), fontSize: 18, bold: true, color: Colors.yellow, align: TextAlign.right);
+    }
   }
 
   /// 根據武器種類獲取類型文字
@@ -211,14 +246,7 @@ class CurrentWeaponHud extends PositionComponent
     double? maxWidth,
   }) {
     final textPainter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          color: color,
-          fontSize: fontSize,
-          fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-        ),
-      ),
+      text: TextSpan(text: text, style: TextStyle(color: color, fontSize: fontSize, fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
       textAlign: align,
       textDirection: TextDirection.ltr,
     );
