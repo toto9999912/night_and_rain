@@ -14,11 +14,9 @@ import 'ui/dialogue_system.dart';
 
 /// 玩家角色類 - 重構版本
 /// 使用組合模式將功能拆分到不同的子系統中
-class Player extends SpriteAnimationGroupComponent<PlayerState>
-    with HasGameReference<NightAndRainGame>, KeyboardHandler {
+class Player extends SpriteAnimationGroupComponent<PlayerState> with HasGameReference<NightAndRainGame>, KeyboardHandler {
   // 子系統模組
-  late final PlayerAnimation
-  animationSystem; // 改名為 animationSystem 避免與父類別的 animation getter 衝突
+  late final PlayerAnimation animationSystem; // 改名為 animationSystem 避免與父類別的 animation getter 衝突
   late final PlayerMovement movement;
   late final PlayerCombat combat;
   late final PlayerInventory inventory;
@@ -27,12 +25,15 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
   // 地圖大小
   final Vector2 mapSize;
 
-  Player(this.mapSize)
-    : super(
-        size: Vector2.all(128),
-        anchor: Anchor.center,
-        position: Vector2(1000, 1000),
-      );
+  // 武器變更時的回調函數
+  Function? _onWeaponsChanged;
+
+  // 設置武器變更回調的setter
+  set onWeaponsChanged(Function? callback) {
+    _onWeaponsChanged = callback;
+  }
+
+  Player(this.mapSize) : super(size: Vector2.all(128), anchor: Anchor.center, position: Vector2(1000, 1000));
 
   @override
   Future<void> onLoad() async {
@@ -60,11 +61,7 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
     final tempDialogueSystem = DialogueSystem();
 
     // 初始化互動系統
-    interaction = PlayerInteraction(
-      gameRef: this,
-      component: this,
-      dialogueSystem: tempDialogueSystem,
-    );
+    interaction = PlayerInteraction(gameRef: this, component: this, dialogueSystem: tempDialogueSystem);
 
     // 初始化背包系統 (必須在其他系統之後初始化，因為需要它們)
     inventory = PlayerInventory(gameRef: this, player: this);
@@ -101,11 +98,7 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
         repeat: true,
         onTick: () {
           if (!combat.isDead) {
-            animationSystem.adjustWalkingAnimationSpeed(
-              movement.velocity,
-              movement.maxSpeed,
-              game.currentTime(),
-            );
+            animationSystem.adjustWalkingAnimationSpeed(movement.velocity, movement.maxSpeed, game.currentTime());
           }
         },
       ),
@@ -128,11 +121,7 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
     }
 
     // 更新動畫狀態
-    animationSystem.updateAnimationState(
-      movement.velocity,
-      movement.maxSpeed,
-      combat.isDead,
-    );
+    animationSystem.updateAnimationState(movement.velocity, movement.maxSpeed, combat.isDead);
   }
 
   // =========== 輸入處理 ===========
@@ -222,13 +211,7 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
   void showManaWarning() {
     final warningText = VisibleTextComponent(
       text: '魔法不足!',
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          fontSize: 16.0,
-          color: Colors.red,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      textRenderer: TextPaint(style: const TextStyle(fontSize: 16.0, color: Colors.red, fontWeight: FontWeight.bold)),
       position: Vector2(0, -90),
       anchor: Anchor.bottomCenter,
     )..priority = 11;

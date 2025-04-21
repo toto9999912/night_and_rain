@@ -22,29 +22,17 @@ class HotkeyItem {
   final String name;
   final Color color;
 
-  HotkeyItem.weapon(this.item, this.weaponIndex, {this.name = '', Color? color})
-    : type = HotkeyItemType.weapon,
-      color = color ?? Colors.blue;
+  HotkeyItem.weapon(this.item, this.weaponIndex, {this.name = '', Color? color}) : type = HotkeyItemType.weapon, color = color ?? Colors.blue;
 
-  HotkeyItem.consumable(Item this.item)
-    : type = HotkeyItemType.consumable,
-      weaponIndex = null,
-      name = item.name,
-      color = item.rarityColor;
+  HotkeyItem.consumable(Item this.item) : type = HotkeyItemType.consumable, weaponIndex = null, name = item.name, color = item.rarityColor;
 
-  HotkeyItem.empty()
-    : type = HotkeyItemType.none,
-      item = null,
-      weaponIndex = null,
-      name = '',
-      color = Colors.grey;
+  HotkeyItem.empty() : type = HotkeyItemType.none, item = null, weaponIndex = null, name = '', color = Colors.grey;
 
   bool get isEmpty => type == HotkeyItemType.none;
 }
 
 /// 快捷鍵 HUD 組件，顯示在畫面上的快捷鍵槽位
-class HotkeysHud extends PositionComponent
-    with HasGameReference<NightAndRainGame> {
+class HotkeysHud extends PositionComponent with HasGameReference<NightAndRainGame> {
   static const double slotSize = 44.0;
   static const double slotSpacing = 6.0;
   static const int hotkeyCount = 4;
@@ -63,27 +51,19 @@ class HotkeysHud extends PositionComponent
 
   HotkeysHud() : super(priority: 10) {
     // 設定在畫面底部
-    size = Vector2(
-      (slotSize + slotSpacing) * hotkeyCount - slotSpacing,
-      slotSize,
-    );
+    size = Vector2((slotSize + slotSpacing) * hotkeyCount - slotSpacing, slotSize);
   }
 
   @override
   Future<void> onLoad() async {
     // 根據螢幕尺寸調整位置，放在畫面底部中央
-    position = Vector2(
-      game.size.x / 2 - size.x / 2,
-      game.size.y - slotSize - 20,
-    );
+    position = Vector2(game.size.x / 2 - size.x / 2, game.size.y - slotSize - 20);
 
     // 載入物品精靈圖表
     await _loadSpriteSheet();
 
-    // 延遲初始化快捷鍵直到確保玩家武器已載入
-    Future.delayed(Duration(milliseconds: 300), () {
-      _initDefaultWeaponHotkeys();
-    });
+    // 初始化武器熱鍵，不再使用不可靠的延遲加載
+    _initDefaultWeaponHotkeys();
 
     await super.onLoad();
   }
@@ -125,25 +105,23 @@ class HotkeysHud extends PositionComponent
           ..color = Colors.grey
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2.0;
-    // 移除選中槽位的高亮繪製邏輯
-    // final selectedPaint =
-    //     Paint()
-    //       ..color = Colors.yellow
-    //       ..style = PaintingStyle.stroke
-    //       ..strokeWidth = 3.0;
+    // 恢復選中槽位的高亮繪製邏輯
+    final selectedPaint =
+        Paint()
+          ..color = Colors.yellow.withOpacity(0.3)
+          ..style = PaintingStyle.fill;
+    final selectedBorderPaint =
+        Paint()
+          ..color = Colors.yellow
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5;
 
     // 繪製背景
     final bgRect = Rect.fromLTWH(0, 0, size.x, size.y);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(bgRect, const Radius.circular(10)),
-      bgPaint,
-    );
+    canvas.drawRRect(RRect.fromRectAndRadius(bgRect, const Radius.circular(10)), bgPaint);
 
     // 繪製邊框
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(bgRect, const Radius.circular(10)),
-      borderPaint,
-    );
+    canvas.drawRRect(RRect.fromRectAndRadius(bgRect, const Radius.circular(10)), borderPaint);
 
     // 繪製每個快捷鍵槽位
     for (int i = 0; i < hotkeyCount; i++) {
@@ -152,20 +130,14 @@ class HotkeysHud extends PositionComponent
       // 繪製槽位
       final slotRect = Rect.fromLTWH(x, 0, slotSize, slotSize);
 
-      // 移除選中槽位的高亮標記
-      // if (i == selectedSlot) {
-      //   canvas.drawRect(slotRect, selectedPaint);
-      // }
+      // 恢復選中槽位的高亮標記
+      if (i == selectedSlot) {
+        canvas.drawRect(slotRect, selectedPaint);
+        canvas.drawRect(slotRect, selectedBorderPaint);
+      }
 
       // 繪製槽位號碼
-      _drawText(
-        canvas,
-        '${i + 1}',
-        Vector2(x + slotSize - 8, 8),
-        align: TextAlign.right,
-        fontSize: 14,
-        bold: true,
-      );
+      _drawText(canvas, '${i + 1}', Vector2(x + slotSize - 8, 8), align: TextAlign.right, fontSize: 14, bold: true);
 
       // 如果有綁定物品，繪製相應信息
       final hotkey = hotkeys[i];
@@ -192,14 +164,7 @@ class HotkeysHud extends PositionComponent
             // 繪製武器圖示
             final weaponSprite = _spriteSheet!.getSprite(spriteX, spriteY);
             final iconSize = slotSize * 0.7;
-            weaponSprite.render(
-              canvas,
-              position: Vector2(
-                x + (slotSize - iconSize) / 2,
-                (slotSize - iconSize) / 2,
-              ),
-              size: Vector2.all(iconSize),
-            );
+            weaponSprite.render(canvas, position: Vector2(x + (slotSize - iconSize) / 2, (slotSize - iconSize) / 2), size: Vector2.all(iconSize));
 
             break;
           case HotkeyItemType.consumable:
@@ -207,26 +172,12 @@ class HotkeysHud extends PositionComponent
             // 如果物品有精靈圖，直接使用
             if (item.sprite != null) {
               final iconSize = slotSize * 0.7;
-              item.sprite!.render(
-                canvas,
-                position: Vector2(
-                  x + (slotSize - iconSize) / 2,
-                  (slotSize - iconSize) / 2,
-                ),
-                size: Vector2.all(iconSize),
-              );
+              item.sprite!.render(canvas, position: Vector2(x + (slotSize - iconSize) / 2, (slotSize - iconSize) / 2), size: Vector2.all(iconSize));
             }
 
             // 如果是可堆疊物品且數量大於1，顯示數量
             if (item.isStackable && item.quantity > 1) {
-              _drawText(
-                canvas,
-                item.quantity.toString(),
-                Vector2(x + slotSize - 8, slotSize - 8),
-                align: TextAlign.right,
-                fontSize: 12,
-                bold: true,
-              );
+              _drawText(canvas, item.quantity.toString(), Vector2(x + slotSize - 8, slotSize - 8), align: TextAlign.right, fontSize: 12, bold: true);
             }
             break;
           case HotkeyItemType.none:
@@ -249,14 +200,7 @@ class HotkeysHud extends PositionComponent
     double? maxWidth,
   }) {
     final textPainter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          color: color,
-          fontSize: fontSize,
-          fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-        ),
-      ),
+      text: TextSpan(text: text, style: TextStyle(color: color, fontSize: fontSize, fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
       textAlign: align,
       textDirection: TextDirection.ltr,
     );
@@ -335,6 +279,8 @@ class HotkeysHud extends PositionComponent
 
   /// 更新快捷鍵槽位的武器引用
   void updateWeaponReferences() {
+    print("更新熱鍵武器引用，目前玩家武器數量: ${player.combat.weapons.length}");
+
     for (int i = 0; i < hotkeyCount; i++) {
       final hotkey = hotkeys[i];
       if (hotkey.type == HotkeyItemType.weapon && hotkey.weaponIndex != null) {
@@ -342,15 +288,29 @@ class HotkeysHud extends PositionComponent
         if (weaponIndex < player.combat.weapons.length) {
           // 更新武器引用
           final weapon = player.combat.weapons[weaponIndex];
-          hotkeys[i] = HotkeyItem.weapon(
-            weapon,
-            weaponIndex,
-            name: weapon.name,
-          );
+          print("更新熱鍵槽 $i 的武器引用: ${weapon.name}");
+          hotkeys[i] = HotkeyItem.weapon(weapon, weaponIndex, name: weapon.name);
         } else {
           // 武器不存在了，清除槽位
+          print("清除熱鍵槽 $i，原武器索引 $weaponIndex 超出範圍");
           clearHotkey(i);
         }
+      }
+    }
+
+    // 檢查當前選中槽位是否有效，否則重置
+    if (selectedSlot != -1 && (selectedSlot >= hotkeyCount || hotkeys[selectedSlot].isEmpty)) {
+      resetSelectedSlot();
+    }
+  }
+
+  /// 重置選中槽位到第一個有效武器
+  void resetSelectedSlot() {
+    selectedSlot = -1;
+    for (int i = 0; i < hotkeyCount; i++) {
+      if (hotkeys[i].type == HotkeyItemType.weapon) {
+        selectedSlot = i;
+        break;
       }
     }
   }

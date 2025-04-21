@@ -96,17 +96,20 @@ class NightAndRainGame extends FlameGame with KeyboardEvents, MouseMovementDetec
     cameraComponent.follow(player);
   }
 
-  /// 設置各種管理器
+  /// 設置各種管理器和系統
   Future<void> _setupManagers() async {
-    // 初始化UI管理器
-    uiManager = UIManager(this);
-    await uiManager.initialize();
-
-    // 讓UI管理器初始化後，才能獲取並保存對熱鍵HUD的引用
-    hotkeysHud = uiManager.hotkeysHud;
-
-    // 初始化輸入管理器
     inputManager = InputManager(this);
+    uiManager = UIManager(this);
+
+    // 初始化熱鍵系統
+    hotkeysHud = HotkeysHud();
+    await add(hotkeysHud);
+
+    // 確保玩家武器變化時更新熱鍵
+    player.onWeaponsChanged = () {
+      // 當玩家武器清單發生變化時更新熱鍵系統
+      hotkeysHud.updateWeaponReferences();
+    };
   }
 
   /// 顯示一條消息在螢幕上 - 代理到UI管理器

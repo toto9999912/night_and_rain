@@ -15,9 +15,13 @@ class PlayerCombat {
   bool isShooting = false;
   List<Weapon> weapons = [];
   int currentWeaponIndex = 0;
+  final int maxWeapons = 5; // 玩家最多可持有的武器數量
 
   // 獲取當前武器的便捷方法
   Weapon get currentWeapon => weapons[currentWeaponIndex];
+
+  // 參考主玩家實例
+  final player; // Player 類型，存儲對 Player 實例的引用
 
   // 參考遊戲主類
   final HasGameReference<NightAndRainGame> gameRef;
@@ -54,17 +58,17 @@ class PlayerCombat {
     this.experienceToNextLevel = 100,
     this.manaRegenRate = 0.5,
     this.healthRegenRate = 1.0,
-  }) : currentHealth = maxHealth,
+  }) : player = gameRef, // 在构造函数中将 gameRef 赋值给 player
+       currentHealth = maxHealth,
        currentMana = maxMana;
 
   /// 初始化武器系統
   void initWeapons() {
     // 添加三種武器，並賦予稀有度
-    weapons.addAll([
-      Pistol(rarity: ItemRarity.common),
-      Shotgun(rarity: ItemRarity.common),
-      MachineGun(rarity: ItemRarity.common),
-    ]);
+    weapons.addAll([Pistol(rarity: ItemRarity.common), Shotgun(rarity: ItemRarity.common), MachineGun(rarity: ItemRarity.common)]);
+
+    // 通知武器變更
+    _notifyWeaponsChanged();
   }
 
   /// 更新武器系統
@@ -133,20 +137,57 @@ class PlayerCombat {
   void stopShooting() => isShooting = false;
 
   /// 切換武器
-  void switchWeapon(int index) {
-    if (index >= 0 && index < weapons.length && currentWeaponIndex != index) {
-      currentWeaponIndex = index;
+  bool switchWeapon(int index) {
+    if (index < 0 || index >= weapons.length) return false;
 
-      // 更新熱鍵欄中的選中槽位
-      final hotkeysHud = gameRef.game.hotkeysHud;
-      for (int i = 0; i < HotkeysHud.hotkeyCount; i++) {
-        final hotkey = hotkeysHud.hotkeys[i];
-        if (hotkey.type == HotkeyItemType.weapon &&
-            hotkey.weaponIndex == currentWeaponIndex) {
-          hotkeysHud.selectedSlot = i;
-          break;
-        }
-      }
+    currentWeaponIndex = index;
+
+    // 更新熱鍵系統中顯示的當前選中武器
+    gameRef.game.hotkeysHud.selectedSlot = gameRef.game.hotkeysHud.hotkeys.indexWhere((hotkey) => hotkey.weaponIndex == index);
+
+    // 通知武器變更
+    _notifyWeaponsChanged();
+
+    return true;
+  }
+
+  /// 添加武器到玩家的武器列表
+  bool addWeapon(Weapon weapon) {
+    if (weapons.length >= maxWeapons) return false;
+    weapons.add(weapon);
+
+    // 通知武器變更
+    _notifyWeaponsChanged();
+
+    return true;
+  }
+
+  /// 移除武器
+  bool removeWeapon(int index) {
+    if (index < 0 || index >= weapons.length) return false;
+
+    // 如果移除的是當前武器，則切換到第一把武器
+    if (index == currentWeaponIndex) {
+      currentWeaponIndex = 0;
+    }
+    // 如果移除的武器在當前武器之前，需要調整當前武器索引
+    else if (index < currentWeaponIndex) {
+      currentWeaponIndex--;
+    }
+
+    weapons.removeAt(index);
+
+    // 通知武器變更
+    _notifyWeaponsChanged();
+
+    return true;
+  }
+
+  /// 通知武器列表已變更
+  void _notifyWeaponsChanged() {
+    // 使用 player 而非 gameRef 來訪問 _onWeaponsChanged
+    if (player._onWeaponsChanged != null) {
+      player._onWeaponsChanged!();
     }
   }
 
@@ -209,13 +250,7 @@ class PlayerCombat {
   }
 
   /// 更新角色屬性
-  void updateStats({
-    double? newAttack,
-    double? newDefense,
-    double? newSpeed,
-    int? newMaxHealth,
-    int? newMaxMana,
-  }) {
+  void updateStats({double? newAttack, double? newDefense, double? newSpeed, int? newMaxHealth, int? newMaxMana}) {
     // 更新各項屬性
     if (newAttack != null) attack = newAttack;
     if (newDefense != null) defense = newDefense;

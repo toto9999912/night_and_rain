@@ -13,6 +13,9 @@ class InputManager {
 
   /// 處理鍵盤輸入事件
   KeyEventResult handleKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
+    // 在每次按鍵事件開始時確保熱鍵系統與玩家武器同步
+    game.hotkeysHud.updateWeaponReferences();
+
     // 如果背包或角色面板開啟，且按下的是數字鍵1-4，則優先處理物品綁定
     if (game.player.inventory.isUIVisible && event is KeyDownEvent) {
       if (event.logicalKey == LogicalKeyboardKey.digit1 ||
@@ -41,6 +44,17 @@ class InputManager {
           }
           return KeyEventResult.handled;
         }
+      }
+    }
+
+    // 全域按鍵處理 - 無論UI打開與否都生效
+    // ESC鍵處理 - 如果有UI打開，關閉它；否則打開遊戲菜單
+    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+      if (game.player.inventory.isUIVisible) {
+        game.player.inventory.toggleInventory();
+        return KeyEventResult.handled;
+      } else {
+        // TODO: 打開遊戲菜單
       }
     }
 
