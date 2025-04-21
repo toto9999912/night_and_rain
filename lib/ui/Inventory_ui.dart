@@ -219,16 +219,17 @@ class InventoryUI extends PositionComponent with TapCallbacks, KeyboardHandler, 
   // 控制器
   late final InventoryUIController controller;
 
-  InventoryUI({required Inventory inventory, required Equipment equipment}) : super(priority: 100) {
-    controller = InventoryUIController(
-      game: game, // 在 onLoad 中會設置 game
-      inventory: inventory,
-      equipment: equipment,
-    );
-  }
+  // 存儲構造函數傳入的參數，以便在 onLoad 中初始化控制器
+  final Inventory _inventory;
+  final Equipment _equipment;
+
+  InventoryUI({required Inventory inventory, required Equipment equipment}) : _inventory = inventory, _equipment = equipment, super(priority: 100);
 
   @override
   Future<void> onLoad() async {
+    // 在 onLoad 中初始化控制器，此時 game 已經可用
+    controller = InventoryUIController(game: game, inventory: _inventory, equipment: _equipment);
+
     // 加載精靈圖
     final spriteSheet = SpriteSheet(image: await Flame.images.load('item_pack.png'), srcSize: Vector2(24, 24));
 

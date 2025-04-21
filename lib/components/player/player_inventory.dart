@@ -23,6 +23,9 @@ class PlayerInventory {
   final HasGameReference<NightAndRainGame> gameRef;
   final dynamic player; // 玩家引用，使用 dynamic 避免循環引用
 
+  // 標記是否已初始化 UI 組件
+  bool _uiInitialized = false;
+
   PlayerInventory({required this.gameRef, required this.player});
 
   /// 初始化背包系統
@@ -39,19 +42,38 @@ class PlayerInventory {
     equipment = Equipment();
   }
 
-  /// 初始化UI組件
-  void initUIComponents() {
+  /// 準備 UI 組件（創建實例但不添加到組件樹）
+  void prepareUIComponents() {
     // 創建背包UI
     inventoryUI = InventoryUI(inventory: inventory, equipment: equipment);
-    gameRef.game.cameraComponent.viewport.add(inventoryUI);
 
     // 創建角色面板
     characterPanel = CharacterPanel();
-    gameRef.game.cameraComponent.viewport.add(characterPanel);
 
     // 創建對話系統
     dialogueSystem = DialogueSystem();
-    gameRef.game.cameraComponent.viewport.add(dialogueSystem);
+  }
+
+  /// 添加 UI 組件到遊戲組件樹（應在玩家完全添加到組件樹後調用）
+  Future<void> addUIComponentsToGame() async {
+    if (_uiInitialized) return;
+
+    // 添加背包 UI
+    await gameRef.game.cameraComponent.viewport.add(inventoryUI);
+
+    // 添加角色面板
+    await gameRef.game.cameraComponent.viewport.add(characterPanel);
+
+    // 添加對話系統
+    await gameRef.game.cameraComponent.viewport.add(dialogueSystem);
+
+    _uiInitialized = true;
+  }
+
+  /// 舊的初始化方法（為向後兼容保留，但內部改為使用新的方式）
+  void initUIComponents() {
+    prepareUIComponents();
+    // 不在這裡添加到組件樹，而是在遊戲適當時機調用 addUIComponentsToGame
   }
 
   /// 添加初始物品到背包

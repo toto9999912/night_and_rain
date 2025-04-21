@@ -67,6 +67,9 @@ class NightAndRainGame extends FlameGame with KeyboardEvents, MouseMovementDetec
   late final InputManager inputManager;
   late final UIManager uiManager;
 
+  // 標記UI是否已初始化
+  bool _uiInitialized = false;
+
   @override
   Future<void> onLoad() async {
     await _setupGameWorld();
@@ -74,7 +77,20 @@ class NightAndRainGame extends FlameGame with KeyboardEvents, MouseMovementDetec
     await _setupCamera();
     await _setupManagers();
 
+    // 只創建 UI 組件但暫不添加到遊戲組件樹
+    player.inventory.prepareUIComponents();
+
     await super.onLoad();
+
+    // 在所有組件加載完成後，添加 UI 組件到遊戲組件樹
+    await _initializeUIComponents();
+  }
+
+  /// 在所有組件加載完成後初始化 UI 組件
+  Future<void> _initializeUIComponents() async {
+    // 添加玩家的 UI 組件到遊戲組件樹
+    await player.inventory.addUIComponentsToGame();
+    _uiInitialized = true;
   }
 
   /// 設置遊戲世界和所有地圖相關組件
