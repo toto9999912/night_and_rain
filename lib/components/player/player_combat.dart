@@ -13,13 +13,20 @@ class PlayerCombat {
   // 武器系統
   double weaponAngle = 0.0;
   bool isShooting = false;
-  List<Weapon> weapons = [];
-  int currentWeaponIndex = 0;
-  final int maxWeapons = 5; // 玩家最多可持有的武器數量
 
-  // 獲取當前武器的便捷方法
-  Weapon? get currentWeapon =>
-      weapons.isNotEmpty ? weapons[currentWeaponIndex] : null;
+  // 將武器列表改為從裝備系統獲取
+  List<Weapon> get weapons {
+    final currentWeapon = player.equipment.getCurrentWeapon();
+    return currentWeapon != null ? [currentWeapon] : [];
+  }
+
+  // 這個屬性保留用於兼容性，但其實只會返回0，因為我們現在只有一個當前武器
+  int currentWeaponIndex = 0;
+
+  final int maxWeapons = 5; // 玩家最多可持有的武器數量 (雖然現在只會有一個)
+
+  // 獲取當前武器的便捷方法，從裝備系統中獲取
+  Weapon? get currentWeapon => player.equipment.getCurrentWeapon();
 
   // 參考主玩家實例
   final Player player;
@@ -64,7 +71,7 @@ class PlayerCombat {
        currentHealth = maxHealth,
        currentMana = maxMana;
 
-  /// 初始化武器系統
+  /// 初始化武器系統 - 為了保持兼容性保留此方法，但現在只需通知武器變更
   void initWeapons() {
     // 通知武器變更
     _notifyWeaponsChanged();
@@ -72,8 +79,9 @@ class PlayerCombat {
 
   /// 更新武器系統
   void update(double dt, Vector2 playerPosition, Vector2 velocity) {
-    // 更新所有武器的冷卻時間
-    for (final weapon in weapons) {
+    // 更新當前武器的冷卻時間
+    final weapon = currentWeapon;
+    if (weapon != null) {
       weapon.update(dt);
     }
 
@@ -135,64 +143,32 @@ class PlayerCombat {
   /// 停止射擊
   void stopShooting() => isShooting = false;
 
-  /// 切換武器
+  /// 切換武器 - 為了保持兼容性保留此方法，但現在沒有實際作用
   bool switchWeapon(int index) {
-    if (index < 0 || index >= weapons.length) return false;
+    // 由於現在只有一個武器，這個方法不再起作用
+    // 所有武器切換邏輯現在應該通過裝備系統處理
+    _notifyWeaponsChanged();
 
-    // 儲存舊的武器索引以便進行比較
-    final oldWeaponIndex = currentWeaponIndex;
-    currentWeaponIndex = index;
-
-    // 只有在武器實際變更時才觸發通知
-    if (oldWeaponIndex != currentWeaponIndex) {
-      // 通知武器變更
-      _notifyWeaponsChanged();
-    }
-
-    // 更新熱鍵系統中顯示的當前選中武器
-    game.hotkeysHud.selectedSlot = game.hotkeysHud.hotkeys.indexWhere(
-      (hotkey) => hotkey.weaponIndex == index,
-    );
+    // 更新熱鍵系統中的選中狀態
+    game.hotkeysHud.updateWeaponReferences();
 
     return true;
   }
 
-  /// 清空武器列表
+  /// 清空武器列表 - 為兼容性保留，但現在它只是通知變更
   void clearWeapons() {
-    weapons.clear();
-    currentWeaponIndex = 0;
     _notifyWeaponsChanged();
   }
 
-  /// 添加武器到玩家的武器列表
+  /// 添加武器 - 為兼容性保留，但現在它只是通知變更
   bool addWeapon(Weapon weapon) {
-    if (weapons.length >= maxWeapons) return false;
-    weapons.add(weapon);
-
-    // 通知武器變更
     _notifyWeaponsChanged();
-
     return true;
   }
 
-  /// 移除武器
+  /// 移除武器 - 為兼容性保留，但現在它只是通知變更
   bool removeWeapon(int index) {
-    if (index < 0 || index >= weapons.length) return false;
-
-    // 如果移除的是當前武器，則切換到第一把武器
-    if (index == currentWeaponIndex) {
-      currentWeaponIndex = 0;
-    }
-    // 如果移除的武器在當前武器之前，需要調整當前武器索引
-    else if (index < currentWeaponIndex) {
-      currentWeaponIndex--;
-    }
-
-    weapons.removeAt(index);
-
-    // 通知武器變更
     _notifyWeaponsChanged();
-
     return true;
   }
 

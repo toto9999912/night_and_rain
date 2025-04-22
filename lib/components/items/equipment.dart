@@ -1,4 +1,6 @@
 import 'item.dart';
+import '../weapons/weapon.dart';
+import 'weapon_item.dart';
 
 /// 裝備欄位系統：管理玩家的裝備
 class Equipment {
@@ -23,6 +25,12 @@ class Equipment {
     'amulet': 'amulet',
     'ring': 'ring',
   };
+
+  /// 獲取當前裝備的武器
+  Weapon? getCurrentWeapon() {
+    final weaponItem = slots['weapon'] as WeaponItem?;
+    return weaponItem?.weapon;
+  }
 
   /// 裝備物品
   bool equip(Item item) {

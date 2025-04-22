@@ -260,8 +260,8 @@ class Player extends SpriteAnimationGroupComponent<PlayerState>
     });
   }
 
-  // 获取当前武器
-  Weapon? get currentWeapon => combat.currentWeapon;
+  // 获取当前武器 - 直接从装备系统获取
+  Weapon? get currentWeapon => equipment.getCurrentWeapon();
 
   // 公开一些重要属性作为代理
   bool get isDead => combat.isDead;

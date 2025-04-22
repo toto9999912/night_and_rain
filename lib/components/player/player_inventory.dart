@@ -226,8 +226,10 @@ class PlayerInventory {
     final item = inventory.items[inventoryIndex];
     if (!item.isEquippable) return false;
 
+    final equipType = item.equipType!;
+
     // 先卸下同類型的裝備
-    final oldItem = equipment.unequip(item.equipType!);
+    final oldItem = equipment.unequip(equipType);
 
     // 裝備新物品
     bool equipped = equipment.equip(item);
@@ -243,6 +245,21 @@ class PlayerInventory {
 
       // 通知更新玩家屬性
       updatePlayerStats();
+
+      // 如果裝備的是武器，通知武器系統變更
+      if (equipType == 'weapon') {
+        // 通知熱鍵系統武器變更
+        if (player.onWeaponsChanged != null) {
+          player.onWeaponsChanged!();
+        }
+
+        // 更新熱鍵欄位
+        if (gameRef.game.hotkeysHud != null) {
+          gameRef.game.hotkeysHud.updateWeaponReferences();
+        }
+
+        print("【調試】裝備武器: ${item.name}，已通知熱鍵系統");
+      }
     }
 
     return equipped;
@@ -254,6 +271,22 @@ class PlayerInventory {
     if (item != null) {
       inventory.addItem(item);
       updatePlayerStats();
+
+      // 如果卸下的是武器，通知武器系統變更
+      if (slot == 'weapon') {
+        // 通知熱鍵系統武器變更
+        if (player.onWeaponsChanged != null) {
+          player.onWeaponsChanged!();
+        }
+
+        // 更新熱鍵欄位
+        if (gameRef.game.hotkeysHud != null) {
+          gameRef.game.hotkeysHud.updateWeaponReferences();
+        }
+
+        print("【調試】卸下武器: ${item.name}，已通知熱鍵系統");
+      }
+
       return true;
     }
     return false;

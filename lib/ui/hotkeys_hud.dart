@@ -304,7 +304,7 @@ class HotkeysHud extends PositionComponent
   void useHotkey(int slot) {
     if (slot < 0 || slot >= hotkeyCount) return;
 
-    // 检查UI是否开启，如果开启则禁止使用快捷键
+    // 檢查UI是否開啟，如果開啟則禁止使用快捷鍵
     if (player.inventory.isUIVisible) {
       return;
     }
@@ -312,23 +312,49 @@ class HotkeysHud extends PositionComponent
     final hotkey = hotkeys[slot];
     switch (hotkey.type) {
       case HotkeyItemType.weapon:
-        // 切换到对应武器
-        if (hotkey.weaponIndex != null) {
-          player.switchWeapon(hotkey.weaponIndex!);
-          // 仅记录内部状态，不处理视觉效果
-          selectedSlot = slot;
+        // 通過裝備系統獲取武器
+        final weapon = hotkey.item as Weapon;
+
+        // 找到對應的 WeaponItem
+        final weaponItems =
+            player.inventory.inventory.items.whereType<WeaponItem>();
+        final matchingWeaponItem = weaponItems.firstWhere(
+          (item) => item.weapon.runtimeType == weapon.runtimeType,
+          orElse: () => null as WeaponItem, // 使用空物件作為默認值
+        );
+
+        if (matchingWeaponItem != null) {
+          // 找到武器在背包中的索引
+          final itemIndex = player.inventory.inventory.items.indexOf(
+            matchingWeaponItem,
+          );
+          if (itemIndex >= 0) {
+            // 裝備該武器
+            player.inventory.equipItem(itemIndex);
+            print("【調試】通過熱鍵裝備武器: ${matchingWeaponItem.name}");
+          } else {
+            print("【警告】無法找到武器在背包中的索引");
+          }
+        } else {
+          // 如果背包中找不到匹配的武器，則使用舊方式
+          if (hotkey.weaponIndex != null) {
+            player.switchWeapon(hotkey.weaponIndex!);
+          }
         }
+
+        // 記錄選中的槽位
+        selectedSlot = slot;
         break;
       case HotkeyItemType.consumable:
         // 使用消耗品
         final item = hotkey.item as Item;
         final success = item.use(player);
 
-        // 如果用完了，清除这个槽位
+        // 如果用完了，清除這個槽位
         if (success && item.quantity <= 0) {
           clearHotkey(slot);
 
-          // 新增：同步从背包中移除数量为0的物品
+          // 同步從背包中移除數量為0的物品
           final itemIndex = player.inventory.inventory.items.indexOf(item);
           if (itemIndex >= 0) {
             player.inventory.inventory.removeItemAt(itemIndex);
@@ -336,7 +362,7 @@ class HotkeysHud extends PositionComponent
         }
         break;
       case HotkeyItemType.none:
-        // 空槽位，不执行任何操作
+        // 空槽位，不執行任何操作
         break;
     }
   }
