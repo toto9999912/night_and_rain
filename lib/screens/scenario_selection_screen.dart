@@ -577,22 +577,27 @@ class _ScenarioSelectionScreenState extends State<ScenarioSelectionScreen>
 
                 // 延遲一下再跳轉，讓動畫效果更明顯
                 Future.delayed(const Duration(milliseconds: 300), () {
-                  Navigator.of(context).push(
-                    PageRouteBuilder(
-                      pageBuilder:
-                          (context, animation, secondaryAnimation) =>
-                              GameWidget(game: NightAndRainGame()),
-                      transitionsBuilder: (
-                        context,
-                        animation,
-                        secondaryAnimation,
-                        child,
-                      ) {
-                        return FadeTransition(opacity: animation, child: child);
-                      },
-                      transitionDuration: const Duration(milliseconds: 500),
-                    ),
-                  );
+                  if (mounted) {
+                    Navigator.of(context).push(
+                      PageRouteBuilder(
+                        pageBuilder:
+                            (context, animation, secondaryAnimation) =>
+                                GameWidget(game: NightAndRainGame()),
+                        transitionsBuilder: (
+                          context,
+                          animation,
+                          secondaryAnimation,
+                          child,
+                        ) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          );
+                        },
+                        transitionDuration: const Duration(milliseconds: 500),
+                      ),
+                    );
+                  }
                 });
               }
             },

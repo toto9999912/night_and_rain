@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flame/components.dart';
 import 'package:flame/sprite.dart';
 import 'package:flame/flame.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 
 /// 資源預載入服務，負責在遊戲開始前載入所有需要的資源
@@ -81,7 +80,7 @@ class ResourcePreloader {
       await Future.delayed(const Duration(seconds: 1));
     } catch (e) {
       _updateStatus("載入資源時發生錯誤: $e");
-      print("預載入資源時發生錯誤: $e");
+      debugPrint("預載入資源時發生錯誤: $e");
       rethrow;
     }
   }

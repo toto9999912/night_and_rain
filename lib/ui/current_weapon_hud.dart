@@ -12,7 +12,8 @@ import '../player.dart';
 import 'hotkeys_hud.dart';
 
 /// 當前武器 HUD 組件，顯示玩家目前使用的武器
-class CurrentWeaponHud extends PositionComponent with HasGameReference<NightAndRainGame> {
+class CurrentWeaponHud extends PositionComponent
+    with HasGameReference<NightAndRainGame> {
   // 將靜態成員重命名，避免與 PositionComponent 衝突
   static const double hudWidth = 160.0;
   static const double hudHeight = 60.0;
@@ -57,9 +58,9 @@ class CurrentWeaponHud extends PositionComponent with HasGameReference<NightAndR
     try {
       final image = await Flame.images.load('item_pack.png');
       _spriteSheet = SpriteSheet(image: image, srcSize: Vector2(24, 24));
-      print("當前武器 HUD 物品精靈圖載入成功");
+      debugPrint("當前武器 HUD 物品精靈圖載入成功");
     } catch (e) {
-      print("當前武器 HUD 載入物品精靈圖失敗: $e");
+      debugPrint("當前武器 HUD 載入物品精靈圖失敗: $e");
     }
   }
 
@@ -71,7 +72,9 @@ class CurrentWeaponHud extends PositionComponent with HasGameReference<NightAndR
     weaponHotkeyNumber = _findWeaponHotkey();
 
     // 檢查武器是否已更改
-    if (player.combat.weapons.isNotEmpty && player.currentWeapon != null && player.currentWeapon!.name != _lastWeaponName) {
+    if (player.combat.weapons.isNotEmpty &&
+        player.currentWeapon != null &&
+        player.currentWeapon!.name != _lastWeaponName) {
       _lastWeaponName = player.currentWeapon!.name;
       _isAnimating = true;
       _animationProgress = 0;
@@ -107,7 +110,8 @@ class CurrentWeaponHud extends PositionComponent with HasGameReference<NightAndR
 
     for (int i = 0; i < HotkeysHud.hotkeyCount; i++) {
       final hotkey = hotkeysHud.hotkeys[i];
-      if (hotkey.type == HotkeyItemType.weapon && hotkey.weaponIndex == currentWeaponIndex) {
+      if (hotkey.type == HotkeyItemType.weapon &&
+          hotkey.weaponIndex == currentWeaponIndex) {
         return i + 1; // 返回1-4的熱鍵編號
       }
     }
@@ -117,9 +121,6 @@ class CurrentWeaponHud extends PositionComponent with HasGameReference<NightAndR
   @override
   void render(Canvas canvas) {
     super.render(canvas);
-
-    // 檢查玩家是否有武器
-    if (player.combat.weapons.isEmpty || _spriteSheet == null || player.currentWeapon == null) return;
 
     // 繪製背景
     final bgPaint = Paint()..color = const Color(0xDD333333);
@@ -131,8 +132,37 @@ class CurrentWeaponHud extends PositionComponent with HasGameReference<NightAndR
 
     // 使用新命名的靜態常量
     final bgRect = Rect.fromLTWH(0, 0, hudWidth, hudHeight);
-    canvas.drawRRect(RRect.fromRectAndRadius(bgRect, const Radius.circular(10)), bgPaint);
-    canvas.drawRRect(RRect.fromRectAndRadius(bgRect, const Radius.circular(10)), borderPaint);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bgRect, const Radius.circular(10)),
+      bgPaint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bgRect, const Radius.circular(10)),
+      borderPaint,
+    );
+
+    // 檢查玩家是否有武器
+    if (player.combat.weapons.isEmpty ||
+        player.currentWeapon == null ||
+        _spriteSheet == null) {
+      // 顯示無武器的提示
+      _drawText(
+        canvas,
+        "無裝備武器",
+        Vector2(hudWidth / 2, hudHeight / 2 - 5),
+        color: Colors.grey,
+      );
+
+      // 顯示提示訊息
+      _drawText(
+        canvas,
+        "按 I 開啟背包綁定武器",
+        Vector2(hudWidth / 2, hudHeight / 2 + 15),
+        fontSize: 10,
+        color: Colors.lightBlueAccent,
+      );
+      return;
+    }
 
     // 獲取當前武器
     final currentWeapon = player.currentWeapon!; // 我們已經檢查了它不是 null
@@ -168,7 +198,10 @@ class CurrentWeaponHud extends PositionComponent with HasGameReference<NightAndR
     final scaledIconSize = iconSize * scale;
     weaponSprite.render(
       canvas,
-      position: Vector2(10 + (iconSize - scaledIconSize) / 2, (hudHeight - scaledIconSize) / 2),
+      position: Vector2(
+        10 + (iconSize - scaledIconSize) / 2,
+        (hudHeight - scaledIconSize) / 2,
+      ),
       size: Vector2.all(scaledIconSize),
     );
 
@@ -184,11 +217,25 @@ class CurrentWeaponHud extends PositionComponent with HasGameReference<NightAndR
     );
 
     // 繪製武器類型
-    _drawText(canvas, _getWeaponTypeText(currentWeapon), Vector2(iconSize + 20, 40), fontSize: 14, align: TextAlign.left);
+    _drawText(
+      canvas,
+      _getWeaponTypeText(currentWeapon),
+      Vector2(iconSize + 20, 40),
+      fontSize: 14,
+      align: TextAlign.left,
+    );
 
     // 顯示對應的熱鍵編號(如果有)
     if (weaponHotkeyNumber != null) {
-      _drawText(canvas, "[${weaponHotkeyNumber}]", Vector2(size.x - 10, 20), fontSize: 18, bold: true, color: Colors.yellow, align: TextAlign.right);
+      _drawText(
+        canvas,
+        "[$weaponHotkeyNumber]",
+        Vector2(size.x - 10, 20),
+        fontSize: 18,
+        bold: true,
+        color: Colors.yellow,
+        align: TextAlign.right,
+      );
     }
   }
 
@@ -236,7 +283,14 @@ class CurrentWeaponHud extends PositionComponent with HasGameReference<NightAndR
     double? maxWidth,
   }) {
     final textPainter = TextPainter(
-      text: TextSpan(text: text, style: TextStyle(color: color, fontSize: fontSize, fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: color,
+          fontSize: fontSize,
+          fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
       textAlign: align,
       textDirection: TextDirection.ltr,
     );

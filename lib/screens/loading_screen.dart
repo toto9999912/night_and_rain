@@ -58,7 +58,7 @@ class _LoadingScreenState extends State<LoadingScreen> {
         );
       });
     } catch (e) {
-      print("載入遊戲資源時發生錯誤: $e");
+      debugPrint("載入遊戲資源時發生錯誤: $e");
       // 顯示錯誤提示
       setState(() {
         _status = "載入失敗: $e";

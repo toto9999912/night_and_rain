@@ -218,7 +218,8 @@ class VillageMap extends Component {
           final window = RectangleComponent(
             position: position + Vector2(windowX, windowY),
             size: Vector2(windowSize, windowSize),
-            paint: Paint()..color = Colors.lightBlueAccent.withOpacity(0.7),
+            paint:
+                Paint()..color = Colors.lightBlueAccent.withValues(alpha: 0.7),
           );
 
           add(window);

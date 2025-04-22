@@ -6,7 +6,6 @@ import '../weapons/weapon.dart';
 import '../weapons/pistol.dart';
 import '../weapons/shotgun.dart';
 import '../weapons/machine_gun.dart';
-import '../enums/item_rarity.dart';
 
 /// 專門處理玩家戰鬥系統的類別
 class PlayerCombat {

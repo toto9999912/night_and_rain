@@ -41,7 +41,7 @@ class InventoryUIController {
         (bindingItemIndex == null || bindingItemIndex != index)) {
       isBindingHotkey = false;
       bindingItemIndex = null;
-      print("【調試】選中新物品，索引: $selectedItemIndex");
+      debugPrint("【調試】選中新物品，索引: $selectedItemIndex");
     }
   }
 
@@ -52,7 +52,7 @@ class InventoryUIController {
       // 切換到熱鍵綁定模式
       isBindingHotkey = true;
       bindingItemIndex = index;
-      print("【調試】啟動熱鍵綁定模式，物品索引: $bindingItemIndex");
+      debugPrint("【調試】啟動熱鍵綁定模式，物品索引: $bindingItemIndex");
       _showMessage("請按下 1-4 數字鍵將此物品綁定到熱鍵欄");
     } else {
       // 選中新物品
@@ -67,36 +67,32 @@ class InventoryUIController {
   bool bindSelectedItemToHotkey(int hotkeySlot) {
     if (selectedItemIndex == null ||
         selectedItemIndex! >= inventory.items.length) {
-      print("【調試】綁定失敗：無效的物品索引 $selectedItemIndex");
+      debugPrint("【調試】綁定失敗：無效的物品索引 $selectedItemIndex");
       return false;
     }
 
     final item = inventory.items[selectedItemIndex!];
-    print("【調試】嘗試綁定物品: ${item.name}，類型: ${item.type}，到熱鍵槽: $hotkeySlot");
+    debugPrint("【調試】嘗試綁定物品: ${item.name}，類型: ${item.type}，到熱鍵槽: $hotkeySlot");
 
     // 獲取HotkeysHud實例
     final hotkeysHud = game.hotkeysHud;
-    if (hotkeysHud == null) {
-      print("【調試】錯誤: hotkeysHud為空");
-      return false;
-    }
 
     if (item.type == ItemType.weapon) {
       // 如果是武器物品，檢查玩家是否擁有此武器
       final weaponItem = item as WeaponItem;
-      print("【調試】武器類型: ${weaponItem.weapon.runtimeType}");
-      print(
+      debugPrint("【調試】武器類型: ${weaponItem.weapon.runtimeType}");
+      debugPrint(
         "【調試】玩家擁有的武器: ${game.player.weapons.map((w) => w.runtimeType).toList()}",
       );
 
       final weaponIndex = game.player.weapons.indexWhere(
         (w) => w.runtimeType == weaponItem.weapon.runtimeType,
       );
-      print("【調試】找到武器索引: $weaponIndex");
+      debugPrint("【調試】找到武器索引: $weaponIndex");
 
       if (weaponIndex >= 0) {
         // 玩家已有此武器，綁定到熱鍵
-        print(
+        debugPrint(
           "【調試】綁定武器 ${game.player.weapons[weaponIndex].name} 到熱鍵槽 $hotkeySlot",
         );
         hotkeysHud.setWeaponHotkey(
@@ -108,13 +104,13 @@ class InventoryUIController {
         return true;
       } else {
         // 玩家尚未擁有此武器，無法綁定
-        print("【調試】無法綁定: 玩家未擁有此武器");
+        debugPrint("【調試】無法綁定: 玩家未擁有此武器");
         _showMessage("必須先裝備此武器才能添加到熱鍵");
         return false;
       }
     } else {
       // 如果是消耗品或其他類型物品，直接添加到熱鍵
-      print("【調試】綁定消耗品 ${item.name} 到熱鍵槽 $hotkeySlot");
+      debugPrint("【調試】綁定消耗品 ${item.name} 到熱鍵槽 $hotkeySlot");
       hotkeysHud.setConsumableHotkey(hotkeySlot, item);
       _showBindSuccessMessage(item.name, hotkeySlot);
       return true;
@@ -170,7 +166,7 @@ class InventoryUIController {
       if (keyNumber != null &&
           keyNumber > 0 &&
           keyNumber <= inventory.items.length) {
-        print("【調試】使用物品索引: ${keyNumber - 1}");
+        debugPrint("【調試】使用物品索引: ${keyNumber - 1}");
         inventory.useItem(keyNumber - 1);
         return true;
       }
@@ -244,20 +240,20 @@ class InventoryUI extends PositionComponent
   InventoryUIController? _controller;
   InventoryUIController get controller {
     if (_controller == null) {
-      if (!_isInitialized || game == null) {
-        print("【警告】組件尚未完全初始化，無法安全地創建控制器");
+      if (!_isInitialized) {
+        debugPrint("【警告】組件尚未完全初始化，無法安全地創建控制器");
         throw Exception("嘗試訪問未初始化的控制器：組件尚未附加到遊戲實例或尚未完成初始化");
       }
 
       try {
-        print("初始化庫存UI控制器");
+        debugPrint("初始化庫存UI控制器");
         _controller = InventoryUIController(
           game: game,
           inventory: _inventory,
           equipment: _equipment,
         );
       } catch (e) {
-        print("【嚴重錯誤】無法創建控制器: $e");
+        debugPrint("【嚴重錯誤】無法創建控制器: $e");
         throw Exception("無法創建庫存UI控制器: $e");
       }
     }
@@ -321,7 +317,7 @@ class InventoryUI extends PositionComponent
         game.size.y / 2 - size.y / 2,
       );
     } catch (e) {
-      print("【錯誤】初始化 InventoryUI 失敗: $e");
+      debugPrint("【錯誤】初始化 InventoryUI 失敗: $e");
     }
 
     await super.onLoad();
@@ -758,14 +754,14 @@ class InventoryUI extends PositionComponent
 
     // 獲取點擊的相對位置
     final localPosition = event.localPosition;
-    print("【調試】背包點擊位置: $localPosition");
+    debugPrint("【調試】背包點擊位置: $localPosition");
 
     // 計算點擊的物品索引
     final itemIndex = _getItemIndexAtPosition(localPosition);
-    print("【調試】點擊的物品索引: $itemIndex");
+    debugPrint("【調試】點擊的物品索引: $itemIndex");
 
     if (itemIndex != null && itemIndex < controller.inventory.items.length) {
-      print("【調試】點擊的物品: ${controller.inventory.items[itemIndex].name}");
+      debugPrint("【調試】點擊的物品: ${controller.inventory.items[itemIndex].name}");
 
       controller.toggleBindingMode(itemIndex);
     }
@@ -809,7 +805,9 @@ class InventoryUI extends PositionComponent
     if (!controller.isVisible) return super.onKeyEvent(event, keysPressed);
 
     // 添加除錯輸出
-    print("【調試】物品欄接收到鍵盤事件: ${event.logicalKey}, 事件類型: ${event.runtimeType}");
+    debugPrint(
+      "【調試】物品欄接收到鍵盤事件: ${event.logicalKey}, 事件類型: ${event.runtimeType}",
+    );
 
     if (event is KeyDownEvent) {
       return controller.handleKeyEvent(event.logicalKey, true);
@@ -823,7 +821,7 @@ class InventoryUI extends PositionComponent
   /// 對外方法代理到控制器
   void open() {
     if (!_isInitialized) {
-      print("【警告】嘗試開啟背包，但控制器尚未初始化");
+      debugPrint("【警告】嘗試開啟背包，但控制器尚未初始化");
       return;
     }
     if (_controller != null) {
@@ -833,7 +831,7 @@ class InventoryUI extends PositionComponent
 
   void close() {
     if (!_isInitialized) {
-      print("【警告】嘗試關閉背包，但控制器尚未初始化");
+      debugPrint("【警告】嘗試關閉背包，但控制器尚未初始化");
       return;
     }
     if (_controller != null) {
@@ -844,17 +842,17 @@ class InventoryUI extends PositionComponent
   void toggle() {
     try {
       if (!_isInitialized) {
-        print("【警告】嘗試切換背包顯示狀態，但控制器尚未初始化");
+        debugPrint("【警告】嘗試切換背包顯示狀態，但控制器尚未初始化");
         return;
       }
 
       if (_controller != null) {
         _controller!.toggle();
       } else {
-        print("【警告】無法切換背包顯示狀態：控制器為空");
+        debugPrint("【警告】無法切換背包顯示狀態：控制器為空");
       }
     } catch (e) {
-      print("【錯誤】切換背包顯示狀態失敗: $e");
+      debugPrint("【錯誤】切換背包顯示狀態失敗: $e");
     }
   }
 

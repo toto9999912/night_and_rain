@@ -2,6 +2,7 @@
 import 'dart:math';
 
 import 'package:collection/collection.dart';
+import 'package:flutter/material.dart';
 import '../../player.dart';
 import '../enums/item_type.dart';
 import 'item.dart';
@@ -174,13 +175,9 @@ class Inventory {
       }
 
       // 直接更新熱鍵系統
-      if (player != null &&
-          player.game != null &&
-          player.game.hotkeysHud != null) {
-        player.game.hotkeysHud.updateWeaponReferences();
-      }
+      player.game.hotkeysHud.updateWeaponReferences();
     } catch (e) {
-      print("【錯誤】通知背包變動時出錯: $e");
+      debugPrint("【錯誤】通知背包變動時出錯: $e");
     }
   }
 }

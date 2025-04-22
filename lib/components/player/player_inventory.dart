@@ -1,4 +1,5 @@
 import 'package:flame/components.dart';
+import 'package:flutter/material.dart';
 import '../../main.dart';
 import '../items/inventory.dart';
 import '../items/equipment.dart';
@@ -128,13 +129,13 @@ class PlayerInventory {
     // 從背包獲取武器
     final weaponItems = inventory.items.whereType<WeaponItem>().toList();
 
-    print("【調試】從背包中同步武器到戰鬥系統 - 找到 ${weaponItems.length} 把武器");
+    debugPrint("【調試】從背包中同步武器到戰鬥系統 - 找到 ${weaponItems.length} 把武器");
 
     // 為每個武器物品添加對應武器到戰鬥系統
     for (final weaponItem in weaponItems) {
       final weapon = weaponItem.weapon;
       player.combat.addWeapon(weapon);
-      print("【調試】已添加武器 ${weapon.name} 到戰鬥系統");
+      debugPrint("【調試】已添加武器 ${weapon.name} 到戰鬥系統");
     }
   }
 
@@ -142,14 +143,14 @@ class PlayerInventory {
   InventoryUIController? getSafeController() {
     // 確保 inventoryUI 已初始化
     if (!_uiInitialized) {
-      print("【警告】UI 組件尚未初始化，無法獲取控制器");
+      debugPrint("【警告】UI 組件尚未初始化，無法獲取控制器");
       return null;
     }
 
     try {
       return inventoryUI.controller;
     } catch (e) {
-      print("【錯誤】獲取控制器失敗: $e");
+      debugPrint("【錯誤】獲取控制器失敗: $e");
       return null;
     }
   }
@@ -158,7 +159,7 @@ class PlayerInventory {
   bool toggleInventory() {
     // 安全檢查：如果UI組件尚未初始化，則不執行操作並返回false
     if (!_uiInitialized) {
-      print("【UI錯誤】嘗試切換背包顯示狀態，但UI組件尚未完全初始化");
+      debugPrint("【UI錯誤】嘗試切換背包顯示狀態，但UI組件尚未完全初始化");
       return false;
     }
 
@@ -179,11 +180,11 @@ class PlayerInventory {
         }
         return controller.isVisible;
       } else {
-        print("【UI警告】無法安全獲取背包控制器，操作被取消");
+        debugPrint("【UI警告】無法安全獲取背包控制器，操作被取消");
         return false;
       }
     } catch (e) {
-      print("【UI錯誤】切換背包顯示狀態時發生錯誤: $e");
+      debugPrint("【UI錯誤】切換背包顯示狀態時發生錯誤: $e");
       return false;
     }
   }
@@ -254,11 +255,9 @@ class PlayerInventory {
         }
 
         // 更新熱鍵欄位
-        if (gameRef.game.hotkeysHud != null) {
-          gameRef.game.hotkeysHud.updateWeaponReferences();
-        }
+        gameRef.game.hotkeysHud.updateWeaponReferences();
 
-        print("【調試】裝備武器: ${item.name}，已通知熱鍵系統");
+        debugPrint("【調試】裝備武器: ${item.name}，已通知熱鍵系統");
       }
     }
 
@@ -280,11 +279,9 @@ class PlayerInventory {
         }
 
         // 更新熱鍵欄位
-        if (gameRef.game.hotkeysHud != null) {
-          gameRef.game.hotkeysHud.updateWeaponReferences();
-        }
+        gameRef.game.hotkeysHud.updateWeaponReferences();
 
-        print("【調試】卸下武器: ${item.name}，已通知熱鍵系統");
+        debugPrint("【調試】卸下武器: ${item.name}，已通知熱鍵系統");
       }
 
       return true;
@@ -315,7 +312,7 @@ class PlayerInventory {
       return inventoryVisible || characterPanelVisible || dialogueVisible;
     } catch (e) {
       // 如果任何UI組件尚未完全初始化，則返回false
-      print("【UI錯誤】UI組件尚未完全初始化: $e");
+      debugPrint("【UI錯誤】UI組件尚未完全初始化: $e");
       return false;
     }
   }

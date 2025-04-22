@@ -88,7 +88,7 @@ class HotkeysHud extends PositionComponent
       // 初始化武器熱鍵延遲到首次更新
       // 不再在onLoad中調用_initDefaultWeaponHotkeys()
     } catch (e) {
-      print("【錯誤】初始化HotkeysHud失敗: $e");
+      debugPrint("【錯誤】初始化HotkeysHud失敗: $e");
     }
 
     await super.onLoad();
@@ -99,21 +99,21 @@ class HotkeysHud extends PositionComponent
     try {
       final image = await Flame.images.load('item_pack.png');
       _spriteSheet = SpriteSheet(image: image, srcSize: Vector2(24, 24));
-      print("物品精靈圖載入成功");
+      debugPrint("物品精靈圖載入成功");
     } catch (e) {
-      print("載入物品精靈圖失敗: $e");
+      debugPrint("載入物品精靈圖失敗: $e");
     }
   }
 
   /// 初始化預設武器快捷鍵
   void _initDefaultWeaponHotkeys() {
     try {
-      print("初始化預設武器快捷鍵，玩家武器數量: ${player.combat.weapons.length}");
+      debugPrint("初始化預設武器快捷鍵，玩家武器數量: ${player.combat.weapons.length}");
       // 綁定前三個槽位為玩家的武器
       if (player.combat.weapons.isEmpty) return;
       for (int i = 0; i < player.combat.weapons.length && i < 3; i++) {
         final weapon = player.combat.weapons[i];
-        print("綁定默認武器: ${weapon.name} 到熱鍵槽 $i");
+        debugPrint("綁定默認武器: ${weapon.name} 到熱鍵槽 $i");
         setWeaponHotkey(i, weapon, i);
       }
 
@@ -122,7 +122,7 @@ class HotkeysHud extends PositionComponent
         selectedSlot = 0;
       }
     } catch (e) {
-      print("【錯誤】初始化預設武器快捷鍵時發生錯誤: $e");
+      debugPrint("【錯誤】初始化預設武器快捷鍵時發生錯誤: $e");
     }
   }
 
@@ -320,26 +320,19 @@ class HotkeysHud extends PositionComponent
             player.inventory.inventory.items.whereType<WeaponItem>();
         final matchingWeaponItem = weaponItems.firstWhere(
           (item) => item.weapon.runtimeType == weapon.runtimeType,
-          orElse: () => null as WeaponItem, // 使用空物件作為默認值
+          // 使用空物件作為默認值
         );
 
-        if (matchingWeaponItem != null) {
-          // 找到武器在背包中的索引
-          final itemIndex = player.inventory.inventory.items.indexOf(
-            matchingWeaponItem,
-          );
-          if (itemIndex >= 0) {
-            // 裝備該武器
-            player.inventory.equipItem(itemIndex);
-            print("【調試】通過熱鍵裝備武器: ${matchingWeaponItem.name}");
-          } else {
-            print("【警告】無法找到武器在背包中的索引");
-          }
+        // 找到武器在背包中的索引
+        final itemIndex = player.inventory.inventory.items.indexOf(
+          matchingWeaponItem,
+        );
+        if (itemIndex >= 0) {
+          // 裝備該武器
+          player.inventory.equipItem(itemIndex);
+          debugPrint("【調試】通過熱鍵裝備武器: ${matchingWeaponItem.name}");
         } else {
-          // 如果背包中找不到匹配的武器，則使用舊方式
-          if (hotkey.weaponIndex != null) {
-            player.switchWeapon(hotkey.weaponIndex!);
-          }
+          debugPrint("【警告】無法找到武器在背包中的索引");
         }
 
         // 記錄選中的槽位
@@ -369,7 +362,7 @@ class HotkeysHud extends PositionComponent
 
   /// 更新快捷鍵槽位的武器引用
   void updateWeaponReferences() {
-    print("更新熱鍵武器引用，目前玩家武器數量: ${player.combat.weapons.length}");
+    debugPrint("更新熱鍵武器引用，目前玩家武器數量: ${player.combat.weapons.length}");
 
     try {
       // 獲取背包中所有武器物品的列表，用於檢查武器是否在背包中
@@ -396,7 +389,7 @@ class HotkeysHud extends PositionComponent
 
             if (weaponInInventory) {
               // 武器在背包中，更新引用
-              print("更新熱鍵槽 $i 的武器引用: ${weapon.name}");
+              debugPrint("更新熱鍵槽 $i 的武器引用: ${weapon.name}");
               hotkeys[i] = HotkeyItem.weapon(
                 weapon,
                 weaponIndex,
@@ -404,12 +397,12 @@ class HotkeysHud extends PositionComponent
               );
             } else {
               // 武器不在背包中，清除該熱鍵
-              print("清除熱鍵槽 $i，武器 ${weapon.name} 不在背包中");
+              debugPrint("清除熱鍵槽 $i，武器 ${weapon.name} 不在背包中");
               clearHotkey(i);
             }
           } else {
             // 武器索引超出範圍，清除槽位
-            print("清除熱鍵槽 $i，原武器索引 $weaponIndex 超出範圍");
+            debugPrint("清除熱鍵槽 $i，原武器索引 $weaponIndex 超出範圍");
             clearHotkey(i);
           }
         } else if (hotkey.type == HotkeyItemType.consumable) {
@@ -421,7 +414,7 @@ class HotkeysHud extends PositionComponent
 
           if (!itemInInventory) {
             // 該物品不在背包中，清除熱鍵
-            print("清除熱鍵槽 $i，消耗品 ${consumable.name} 不在背包中");
+            debugPrint("清除熱鍵槽 $i，消耗品 ${consumable.name} 不在背包中");
             clearHotkey(i);
           }
         }
@@ -433,7 +426,7 @@ class HotkeysHud extends PositionComponent
         resetSelectedSlot();
       }
     } catch (e) {
-      print("【錯誤】更新熱鍵武器引用時發生錯誤: $e");
+      debugPrint("【錯誤】更新熱鍵武器引用時發生錯誤: $e");
     }
   }
 

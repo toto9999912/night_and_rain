@@ -1,6 +1,4 @@
-import 'package:flame/components.dart';
 import 'package:flame/events.dart';
-import 'package:flame/input.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../main.dart';
@@ -12,7 +10,10 @@ class InputManager {
   InputManager(this.game);
 
   /// 處理鍵盤輸入事件
-  KeyEventResult handleKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
+  KeyEventResult handleKeyEvent(
+    KeyEvent event,
+    Set<LogicalKeyboardKey> keysPressed,
+  ) {
     // 在每次按鍵事件開始時確保熱鍵系統與玩家武器同步
     game.hotkeysHud.updateWeaponReferences();
 
@@ -22,7 +23,7 @@ class InputManager {
           event.logicalKey == LogicalKeyboardKey.digit2 ||
           event.logicalKey == LogicalKeyboardKey.digit3 ||
           event.logicalKey == LogicalKeyboardKey.digit4) {
-        print("【調試】輸入管理器接收到數字鍵: ${event.logicalKey}，將轉發給背包UI處理");
+        debugPrint("【調試】輸入管理器接收到數字鍵: ${event.logicalKey}，將轉發給背包UI處理");
 
         // 直接獲取背包UI實例並轉發事件
         final inventoryUI = game.player.inventory.inventoryUI;
@@ -37,7 +38,7 @@ class InputManager {
                   : 4;
 
           final hotkeySlot = keyNumber - 1;
-          print("【調試】直接綁定物品到熱鍵槽 $hotkeySlot");
+          debugPrint("【調試】直接綁定物品到熱鍵槽 $hotkeySlot");
 
           if (inventoryUI.controller.bindingItemIndex != null) {
             inventoryUI.bindSelectedItemToHotkey(hotkeySlot);
@@ -49,7 +50,8 @@ class InputManager {
 
     // 全域按鍵處理 - 無論UI打開與否都生效
     // ESC鍵處理 - 如果有UI打開，關閉它；否則打開遊戲菜單
-    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.escape) {
       if (game.player.inventory.isUIVisible) {
         game.player.inventory.toggleInventory();
         return KeyEventResult.handled;
@@ -92,9 +94,11 @@ class InputManager {
       game.player.updateMovement(keysPressed);
 
       // 空格鍵射擊
-      if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.space) {
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.space) {
         game.player.shoot();
-      } else if (event is KeyUpEvent && event.logicalKey == LogicalKeyboardKey.space) {
+      } else if (event is KeyUpEvent &&
+          event.logicalKey == LogicalKeyboardKey.space) {
         game.player.stopShooting();
       }
     } else {
@@ -108,13 +112,17 @@ class InputManager {
 
   /// 處理滑鼠移動
   void handleMouseMove(PointerHoverInfo info) {
-    game.mousePosition = game.cameraComponent.globalToLocal(info.eventPosition.global);
+    game.mousePosition = game.cameraComponent.globalToLocal(
+      info.eventPosition.global,
+    );
     game.player.updateWeaponAngle(game.mousePosition);
   }
 
   /// 處理點擊開始
   void handleTapDown(TapDownInfo info) {
-    game.mousePosition = game.cameraComponent.globalToLocal(info.eventPosition.global);
+    game.mousePosition = game.cameraComponent.globalToLocal(
+      info.eventPosition.global,
+    );
     game.player.updateWeaponAngle(game.mousePosition);
     game.player.shoot();
   }

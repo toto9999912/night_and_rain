@@ -2,7 +2,7 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'main.dart';
 
-class Bullet extends PositionComponent with HasGameRef<NightAndRainGame> {
+class Bullet extends PositionComponent with HasGameReference<NightAndRainGame> {
   final Vector2 direction;
   final double speed;
   final double damage;
@@ -12,15 +12,31 @@ class Bullet extends PositionComponent with HasGameRef<NightAndRainGame> {
   bool shouldRemove = false;
   double lifespan = 2.0; // 子彈存活時間（秒）
 
-  Bullet({required Vector2 position, required this.direction, this.speed = 500.0, this.damage = 10.0, Color? bulletColor, Vector2? bulletSize})
-    : bulletColor = bulletColor ?? Colors.amberAccent,
-      bulletSize = bulletSize ?? Vector2(16, 8),
-      super(position: position, size: bulletSize ?? Vector2(16, 8), anchor: Anchor.center);
+  Bullet({
+    required Vector2 position,
+    required this.direction,
+    this.speed = 500.0,
+    this.damage = 10.0,
+    Color? bulletColor,
+    Vector2? bulletSize,
+  }) : bulletColor = bulletColor ?? Colors.amberAccent,
+       bulletSize = bulletSize ?? Vector2(16, 8),
+       super(
+         position: position,
+         size: bulletSize ?? Vector2(16, 8),
+         anchor: Anchor.center,
+       );
 
   @override
   Future<void> onLoad() async {
     // 繪製矩形作為子彈
-    add(RectangleComponent(size: size, paint: Paint()..color = bulletColor, anchor: Anchor.center));
+    add(
+      RectangleComponent(
+        size: size,
+        paint: Paint()..color = bulletColor,
+        anchor: Anchor.center,
+      ),
+    );
 
     angle = direction.angleToSigned(Vector2(1, 0));
 
@@ -42,7 +58,7 @@ class Bullet extends PositionComponent with HasGameRef<NightAndRainGame> {
 
     // 子彈碰撞障礙物的處理
     // 使用 GameWorld 中的 checkCollision 方法
-    if (gameRef.gameWorld.checkCollision(this)) {
+    if (game.gameWorld.checkCollision(this)) {
       shouldRemove = true;
       _createHitEffect();
     }
@@ -50,9 +66,14 @@ class Bullet extends PositionComponent with HasGameRef<NightAndRainGame> {
 
   void _createHitEffect() {
     // 撞擊效果，使用子彈顏色
-    final effect = CircleComponent(radius: 10, paint: Paint()..color = bulletColor.withValues(alpha: 0.7), position: position, anchor: Anchor.center);
+    final effect = CircleComponent(
+      radius: 10,
+      paint: Paint()..color = bulletColor.withValues(alpha: 0.7),
+      position: position,
+      anchor: Anchor.center,
+    );
 
-    gameRef.gameWorld.add(effect);
+    game.gameWorld.add(effect);
 
     // 0.2秒後移除效果
     Future.delayed(const Duration(milliseconds: 200), () {

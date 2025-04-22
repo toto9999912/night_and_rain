@@ -1,9 +1,7 @@
-import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'scenario_selection_screen.dart';
 import 'loading_screen.dart';
-import '../main.dart'; // 導入 GameScreen
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});

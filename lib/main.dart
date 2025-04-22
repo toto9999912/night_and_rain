@@ -81,7 +81,7 @@ class NightAndRainGame extends FlameGame
 
   @override
   Future<void> onLoad() async {
-    print("遊戲初始化開始...");
+    debugPrint("遊戲初始化開始...");
 
     // 設置初始載入階段
     _initStage = 1;
@@ -124,50 +124,50 @@ class NightAndRainGame extends FlameGame
       _uiInitialized = true;
       _isReady = true;
 
-      print("遊戲初始化完成，所有系統已就緒");
+      debugPrint("遊戲初始化完成，所有系統已就緒");
     } catch (e) {
-      print("遊戲初始化失敗(階段 $_initStage): $e");
+      debugPrint("遊戲初始化失敗(階段 $_initStage): $e");
       rethrow;
     }
   }
 
   /// 核心管理器設置 - 不包含需要玩家引用的部分
   Future<void> _setupManagersCore() async {
-    print("設置核心管理器...");
+    debugPrint("設置核心管理器...");
     inputManager = InputManager(this);
     uiManager = UIManager(this);
-    print("核心管理器設置完成");
+    debugPrint("核心管理器設置完成");
   }
 
   /// 設置遊戲世界和所有地圖相關組件
   Future<void> _setupGameWorld() async {
-    print("設置遊戲世界...");
+    debugPrint("設置遊戲世界...");
     gameWorld = GameWorld(mapSize);
     await add(gameWorld);
-    print("遊戲世界設置完成");
+    debugPrint("遊戲世界設置完成");
   }
 
   /// 設置玩家角色
   Future<void> _setupPlayer() async {
-    print("設置玩家角色...");
+    debugPrint("設置玩家角色...");
     player = Player(mapSize);
     gameWorld.add(player);
-    print("玩家角色設置完成");
+    debugPrint("玩家角色設置完成");
   }
 
   /// 設置遊戲相機
   Future<void> _setupCamera() async {
-    print("設置遊戲相機...");
+    debugPrint("設置遊戲相機...");
     cameraComponent = CameraComponent(world: gameWorld)
       ..viewfinder.anchor = Anchor.center;
     await add(cameraComponent);
     cameraComponent.follow(player);
-    print("遊戲相機設置完成");
+    debugPrint("遊戲相機設置完成");
   }
 
   /// 完整初始化玩家UI組件
   Future<void> _initializePlayerUIComponents() async {
-    print("開始初始化玩家UI組件...");
+    debugPrint("開始初始化玩家UI組件...");
     try {
       // 準備UI組件
       player.inventory.initInventory();
@@ -176,23 +176,23 @@ class NightAndRainGame extends FlameGame
 
       // 添加UI組件到遊戲，並等待其完成
       await player.inventory.addUIComponentsToGame();
-      print("玩家UI組件初始化完成");
+      debugPrint("玩家UI組件初始化完成");
     } catch (e) {
-      print("初始化玩家UI組件時發生錯誤: $e");
+      debugPrint("初始化玩家UI組件時發生錯誤: $e");
       rethrow;
     }
   }
 
   Future<void> _initializeHotkeys() async {
-    print("初始化熱鍵系統...");
+    debugPrint("初始化熱鍵系統...");
     try {
       // 初始化熱鍵系統
       hotkeysHud = HotkeysHud();
-      await cameraComponent.viewport.add(hotkeysHud); // 修改这里
+      await cameraComponent.viewport.add(hotkeysHud);
 
       // 初始化當前武器顯示
       CurrentWeaponHud currentWeaponHud = CurrentWeaponHud();
-      await cameraComponent.viewport.add(currentWeaponHud); // 修改这里
+      await cameraComponent.viewport.add(currentWeaponHud);
 
       // 设置玩家武器变更事件通知
       player.onWeaponsChanged = () {
@@ -200,21 +200,21 @@ class NightAndRainGame extends FlameGame
       };
 
       hotkeysHud.updateWeaponReferences();
-      print("熱鍵系統初始化完成");
+      debugPrint("熱鍵系統初始化完成");
     } catch (e) {
-      print("初始化熱鍵系統時發生錯誤: $e");
+      debugPrint("初始化熱鍵系統時發生錯誤: $e");
       rethrow;
     }
   }
 
   Future<void> _initializeHealthManaHud() async {
-    print("初始化生命值與魔法值HUD...");
+    debugPrint("初始化生命值與魔法值HUD...");
     try {
       healthManaHud = HealthManaHud(player: player);
       await cameraComponent.viewport.add(healthManaHud); // 修改这里
-      print("生命值與魔法值HUD初始化完成");
+      debugPrint("生命值與魔法值HUD初始化完成");
     } catch (e) {
-      print("初始化生命值與魔法值HUD時發生錯誤: $e");
+      debugPrint("初始化生命值與魔法值HUD時發生錯誤: $e");
       rethrow;
     }
   }

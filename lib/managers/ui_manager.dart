@@ -29,7 +29,7 @@ class UIManager {
 
     // 創建并添加快捷鍵 HUD
     hotkeysHud = HotkeysHud();
-    print("【調試】初始化熱鍵欄: $hotkeysHud");
+    debugPrint("【調試】初始化熱鍵欄: $hotkeysHud");
     game.cameraComponent.viewport.add(hotkeysHud);
 
     // 添加當前武器 HUD，放在 hotkeysHud 左側
