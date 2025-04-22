@@ -4,6 +4,7 @@ import 'package:flame/flame.dart';
 import 'package:flutter/material.dart';
 
 import '../components/items/item.dart';
+import '../components/items/weapon_item.dart';
 import '../components/weapons/weapon.dart';
 import '../components/weapons/pistol.dart';
 import '../components/weapons/shotgun.dart';
@@ -109,6 +110,7 @@ class HotkeysHud extends PositionComponent
     try {
       print("初始化預設武器快捷鍵，玩家武器數量: ${player.combat.weapons.length}");
       // 綁定前三個槽位為玩家的武器
+      if (player.combat.weapons.isEmpty) return;
       for (int i = 0; i < player.combat.weapons.length && i < 3; i++) {
         final weapon = player.combat.weapons[i];
         print("綁定默認武器: ${weapon.name} 到熱鍵槽 $i");
@@ -299,11 +301,10 @@ class HotkeysHud extends PositionComponent
     }
   }
 
-  /// 使用指定快捷鍵
   void useHotkey(int slot) {
     if (slot < 0 || slot >= hotkeyCount) return;
 
-    // 檢查UI是否開啟，如果開啟則禁止使用快捷鍵
+    // 检查UI是否开启，如果开启则禁止使用快捷键
     if (player.inventory.isUIVisible) {
       return;
     }
@@ -311,10 +312,10 @@ class HotkeysHud extends PositionComponent
     final hotkey = hotkeys[slot];
     switch (hotkey.type) {
       case HotkeyItemType.weapon:
-        // 切換到對應武器
+        // 切换到对应武器
         if (hotkey.weaponIndex != null) {
           player.switchWeapon(hotkey.weaponIndex!);
-          // 僅記錄內部狀態，不處理視覺效果
+          // 仅记录内部状态，不处理视觉效果
           selectedSlot = slot;
         }
         break;
@@ -323,13 +324,19 @@ class HotkeysHud extends PositionComponent
         final item = hotkey.item as Item;
         final success = item.use(player);
 
-        // 如果用完了，清除這個槽位
+        // 如果用完了，清除这个槽位
         if (success && item.quantity <= 0) {
           clearHotkey(slot);
+
+          // 新增：同步从背包中移除数量为0的物品
+          final itemIndex = player.inventory.inventory.items.indexOf(item);
+          if (itemIndex >= 0) {
+            player.inventory.inventory.removeItemAt(itemIndex);
+          }
         }
         break;
       case HotkeyItemType.none:
-        // 空槽位，不執行任何操作
+        // 空槽位，不执行任何操作
         break;
     }
   }
@@ -339,23 +346,56 @@ class HotkeysHud extends PositionComponent
     print("更新熱鍵武器引用，目前玩家武器數量: ${player.combat.weapons.length}");
 
     try {
+      // 獲取背包中所有武器物品的列表，用於檢查武器是否在背包中
+      final inventoryWeapons =
+          player.inventory.inventory.items
+              .whereType<WeaponItem>()
+              .map((weaponItem) => weaponItem.weapon.runtimeType)
+              .toList();
+
       for (int i = 0; i < hotkeyCount; i++) {
         final hotkey = hotkeys[i];
         if (hotkey.type == HotkeyItemType.weapon &&
             hotkey.weaponIndex != null) {
           final weaponIndex = hotkey.weaponIndex!;
+
+          // 檢查武器是否在玩家的武器列表中
           if (weaponIndex < player.combat.weapons.length) {
-            // 更新武器引用
             final weapon = player.combat.weapons[weaponIndex];
-            print("更新熱鍵槽 $i 的武器引用: ${weapon.name}");
-            hotkeys[i] = HotkeyItem.weapon(
-              weapon,
-              weaponIndex,
-              name: weapon.name,
+
+            // 檢查該武器類型是否在背包中
+            bool weaponInInventory = inventoryWeapons.contains(
+              weapon.runtimeType,
             );
+
+            if (weaponInInventory) {
+              // 武器在背包中，更新引用
+              print("更新熱鍵槽 $i 的武器引用: ${weapon.name}");
+              hotkeys[i] = HotkeyItem.weapon(
+                weapon,
+                weaponIndex,
+                name: weapon.name,
+              );
+            } else {
+              // 武器不在背包中，清除該熱鍵
+              print("清除熱鍵槽 $i，武器 ${weapon.name} 不在背包中");
+              clearHotkey(i);
+            }
           } else {
-            // 武器不存在了，清除槽位
+            // 武器索引超出範圍，清除槽位
             print("清除熱鍵槽 $i，原武器索引 $weaponIndex 超出範圍");
+            clearHotkey(i);
+          }
+        } else if (hotkey.type == HotkeyItemType.consumable) {
+          // 檢查消耗品是否還在背包中
+          final consumable = hotkey.item as Item;
+          bool itemInInventory = player.inventory.inventory.items.contains(
+            consumable,
+          );
+
+          if (!itemInInventory) {
+            // 該物品不在背包中，清除熱鍵
+            print("清除熱鍵槽 $i，消耗品 ${consumable.name} 不在背包中");
             clearHotkey(i);
           }
         }

@@ -183,25 +183,22 @@ class NightAndRainGame extends FlameGame
     }
   }
 
-  /// 初始化熱鍵和武器HUD
   Future<void> _initializeHotkeys() async {
     print("初始化熱鍵系統...");
     try {
       // 初始化熱鍵系統
       hotkeysHud = HotkeysHud();
-      await add(hotkeysHud);
+      await cameraComponent.viewport.add(hotkeysHud); // 修改这里
 
       // 初始化當前武器顯示
       CurrentWeaponHud currentWeaponHud = CurrentWeaponHud();
-      await add(currentWeaponHud);
+      await cameraComponent.viewport.add(currentWeaponHud); // 修改这里
 
-      // 設置玩家武器變更事件通知
+      // 设置玩家武器变更事件通知
       player.onWeaponsChanged = () {
-        // 當玩家武器清單發生變化時更新熱鍵系統
         hotkeysHud.updateWeaponReferences();
       };
 
-      // 初始設置熱鍵槽位
       hotkeysHud.updateWeaponReferences();
       print("熱鍵系統初始化完成");
     } catch (e) {
@@ -210,12 +207,11 @@ class NightAndRainGame extends FlameGame
     }
   }
 
-  /// 初始化生命值與魔法值HUD
   Future<void> _initializeHealthManaHud() async {
     print("初始化生命值與魔法值HUD...");
     try {
       healthManaHud = HealthManaHud(player: player);
-      await add(healthManaHud);
+      await cameraComponent.viewport.add(healthManaHud); // 修改这里
       print("生命值與魔法值HUD初始化完成");
     } catch (e) {
       print("初始化生命值與魔法值HUD時發生錯誤: $e");

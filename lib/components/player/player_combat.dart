@@ -18,7 +18,8 @@ class PlayerCombat {
   final int maxWeapons = 5; // 玩家最多可持有的武器數量
 
   // 獲取當前武器的便捷方法
-  Weapon? get currentWeapon => weapons.isNotEmpty ? weapons[currentWeaponIndex] : null;
+  Weapon? get currentWeapon =>
+      weapons.isNotEmpty ? weapons[currentWeaponIndex] : null;
 
   // 參考主玩家實例
   final Player player;
@@ -65,9 +66,6 @@ class PlayerCombat {
 
   /// 初始化武器系統
   void initWeapons() {
-    // 添加三種武器，並賦予稀有度
-    weapons.addAll([Pistol(rarity: ItemRarity.common), Shotgun(rarity: ItemRarity.common), MachineGun(rarity: ItemRarity.common)]);
-
     // 通知武器變更
     _notifyWeaponsChanged();
   }
@@ -152,9 +150,18 @@ class PlayerCombat {
     }
 
     // 更新熱鍵系統中顯示的當前選中武器
-    game.hotkeysHud.selectedSlot = game.hotkeysHud.hotkeys.indexWhere((hotkey) => hotkey.weaponIndex == index);
+    game.hotkeysHud.selectedSlot = game.hotkeysHud.hotkeys.indexWhere(
+      (hotkey) => hotkey.weaponIndex == index,
+    );
 
     return true;
+  }
+
+  /// 清空武器列表
+  void clearWeapons() {
+    weapons.clear();
+    currentWeaponIndex = 0;
+    _notifyWeaponsChanged();
   }
 
   /// 添加武器到玩家的武器列表
@@ -257,7 +264,13 @@ class PlayerCombat {
   }
 
   /// 更新角色屬性
-  void updateStats({double? newAttack, double? newDefense, double? newSpeed, int? newMaxHealth, int? newMaxMana}) {
+  void updateStats({
+    double? newAttack,
+    double? newDefense,
+    double? newSpeed,
+    int? newMaxHealth,
+    int? newMaxMana,
+  }) {
     // 更新各項屬性
     if (newAttack != null) attack = newAttack;
     if (newDefense != null) defense = newDefense;

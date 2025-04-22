@@ -103,15 +103,39 @@ class PlayerInventory {
       rarity: ItemRarity.common,
     );
 
-    // 使用工廠方法創建武器物品
+    // 確保添加所有三種武器到背包
     final pistolItem = WeaponItem.createPistolItem(ItemRarity.uncommon);
     final shotgunItem = WeaponItem.createShotgunItem(ItemRarity.common);
+    // 添加機關槍，這樣所有武器都會在背包中
+    final machineGunItem = WeaponItem.createMachineGunItem(ItemRarity.common);
 
     // 添加到背包
     inventory.addItem(healthPotion);
     inventory.addItem(manaPotion);
     inventory.addItem(pistolItem);
     inventory.addItem(shotgunItem);
+    inventory.addItem(machineGunItem); // 添加機關槍到背包
+
+    // 新增: 同步武器到戰鬥系統
+    syncWeaponsWithCombatSystem();
+  }
+
+  // 新方法: 同步背包武器到戰鬥系統
+  void syncWeaponsWithCombatSystem() {
+    // 先清空現有戰鬥武器
+    player.combat.clearWeapons();
+
+    // 從背包獲取武器
+    final weaponItems = inventory.items.whereType<WeaponItem>().toList();
+
+    print("【調試】從背包中同步武器到戰鬥系統 - 找到 ${weaponItems.length} 把武器");
+
+    // 為每個武器物品添加對應武器到戰鬥系統
+    for (final weaponItem in weaponItems) {
+      final weapon = weaponItem.weapon;
+      player.combat.addWeapon(weapon);
+      print("【調試】已添加武器 ${weapon.name} 到戰鬥系統");
+    }
   }
 
   // 添加安全獲取控制器的方法
