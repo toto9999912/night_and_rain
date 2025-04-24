@@ -72,42 +72,24 @@ class InventoryUIController {
     }
 
     final item = inventory.items[selectedItemIndex!];
+    debugPrint("【調試】直接綁定物品到熱鍵槽 $hotkeySlot");
     debugPrint("【調試】嘗試綁定物品: ${item.name}，類型: ${item.type}，到熱鍵槽: $hotkeySlot");
 
     // 獲取HotkeysHud實例
     final hotkeysHud = game.hotkeysHud;
 
     if (item.type == ItemType.weapon) {
-      // 如果是武器物品，檢查玩家是否擁有此武器
+      // 武器物品，直接綁定而不檢查是否已裝備
       final weaponItem = item as WeaponItem;
       debugPrint("【調試】武器類型: ${weaponItem.weapon.runtimeType}");
-      debugPrint(
-        "【調試】玩家擁有的武器: ${game.player.weapons.map((w) => w.runtimeType).toList()}",
-      );
 
-      final weaponIndex = game.player.weapons.indexWhere(
-        (w) => w.runtimeType == weaponItem.weapon.runtimeType,
-      );
-      debugPrint("【調試】找到武器索引: $weaponIndex");
+      // 直接綁定武器到熱鍵，不需要先裝備
+      debugPrint("【調試】直接綁定武器 ${weaponItem.name} 到熱鍵槽 $hotkeySlot");
 
-      if (weaponIndex >= 0) {
-        // 玩家已有此武器，綁定到熱鍵
-        debugPrint(
-          "【調試】綁定武器 ${game.player.weapons[weaponIndex].name} 到熱鍵槽 $hotkeySlot",
-        );
-        hotkeysHud.setWeaponHotkey(
-          hotkeySlot,
-          game.player.weapons[weaponIndex],
-          weaponIndex,
-        );
-        _showBindSuccessMessage(item.name, hotkeySlot);
-        return true;
-      } else {
-        // 玩家尚未擁有此武器，無法綁定
-        debugPrint("【調試】無法綁定: 玩家未擁有此武器");
-        _showMessage("必須先裝備此武器才能添加到熱鍵");
-        return false;
-      }
+      // 新方法：直接綁定武器物品而不是武器實例
+      hotkeysHud.setWeaponItemHotkey(hotkeySlot, weaponItem);
+      _showBindSuccessMessage(item.name, hotkeySlot);
+      return true;
     } else {
       // 如果是消耗品或其他類型物品，直接添加到熱鍵
       debugPrint("【調試】綁定消耗品 ${item.name} 到熱鍵槽 $hotkeySlot");

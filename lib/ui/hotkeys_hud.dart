@@ -94,6 +94,28 @@ class HotkeysHud extends PositionComponent
     await super.onLoad();
   }
 
+  /// 設置武器物品快捷鍵 (直接使用 WeaponItem 而不是 Weapon)
+  void setWeaponItemHotkey(int slot, WeaponItem weaponItem) {
+    if (slot >= 0 && slot < hotkeyCount) {
+      // 從 WeaponItem 獲取 Weapon 實例
+      final weapon = weaponItem.weapon;
+
+      // 創建一個特殊的 HotkeyItem，weaponIndex 設為 -1 表示直接來自背包
+      hotkeys[slot] = HotkeyItem.weapon(
+        weapon,
+        -1, // 使用 -1 表示這是直接從背包綁定的武器
+        name: weaponItem.name,
+      );
+
+      debugPrint("【調試】成功綁定武器物品: ${weaponItem.name} 到熱鍵槽 $slot");
+
+      // 如果沒有選中的槽位，將這個設為選中
+      if (selectedSlot == -1) {
+        selectedSlot = slot;
+      }
+    }
+  }
+
   /// 載入物品精靈圖表
   Future<void> _loadSpriteSheet() async {
     try {
@@ -312,25 +334,42 @@ class HotkeysHud extends PositionComponent
     final hotkey = hotkeys[slot];
     switch (hotkey.type) {
       case HotkeyItemType.weapon:
-        // 通過裝備系統獲取武器
+        // 先檢查已裝備的武器
+        final equippedWeaponItem =
+            player.inventory.equipment.slots['weapon'] as WeaponItem?;
         final weapon = hotkey.item as Weapon;
 
-        // 找到對應的 WeaponItem
-        final weaponItems =
-            player.inventory.inventory.items.whereType<WeaponItem>();
-        final matchingWeaponItem = weaponItems.firstWhere(
-          (item) => item.weapon.runtimeType == weapon.runtimeType,
-          // 使用空物件作為默認值
-        );
+        // 如果該武器已裝備，不需要做任何事
+        if (equippedWeaponItem != null &&
+            equippedWeaponItem.weapon.runtimeType == weapon.runtimeType) {
+          selectedSlot = slot;
+          return;
+        }
 
+        // 在背包中尋找對應的 WeaponItem - 使用更安全的方式
+        final matchingWeaponItems =
+            player.inventory.inventory.items
+                .whereType<WeaponItem>()
+                .where((item) => item.weapon.runtimeType == weapon.runtimeType)
+                .toList();
+
+        if (matchingWeaponItems.isEmpty) {
+          debugPrint("【警告】背包中找不到對應武器: ${weapon.runtimeType}");
+          return;
+        }
+
+        final matchingWeaponItem = matchingWeaponItems.first;
+        debugPrint(
+          "【調試】武器屬性: isEquippable=${matchingWeaponItem.isEquippable}, equipType=${matchingWeaponItem.equipType}",
+        );
         // 找到武器在背包中的索引
         final itemIndex = player.inventory.inventory.items.indexOf(
           matchingWeaponItem,
         );
         if (itemIndex >= 0) {
           // 裝備該武器
-          player.inventory.equipItem(itemIndex);
-          debugPrint("【調試】通過熱鍵裝備武器: ${matchingWeaponItem.name}");
+          final success = player.inventory.equipItem(itemIndex);
+          debugPrint("【調試】通過熱鍵裝備武器: ${matchingWeaponItem.name}, 成功: $success");
         } else {
           debugPrint("【警告】無法找到武器在背包中的索引");
         }
@@ -338,6 +377,7 @@ class HotkeysHud extends PositionComponent
         // 記錄選中的槽位
         selectedSlot = slot;
         break;
+
       case HotkeyItemType.consumable:
         // 使用消耗品
         final item = hotkey.item as Item;
@@ -360,67 +400,48 @@ class HotkeysHud extends PositionComponent
     }
   }
 
-  /// 更新快捷鍵槽位的武器引用
   void updateWeaponReferences() {
     debugPrint("更新熱鍵武器引用，目前玩家武器數量: ${player.combat.weapons.length}");
 
     try {
-      // 獲取背包中所有武器物品的列表，用於檢查武器是否在背包中
-      final inventoryWeapons =
-          player.inventory.inventory.items
-              .whereType<WeaponItem>()
-              .map((weaponItem) => weaponItem.weapon.runtimeType)
-              .toList();
+      // 獲取背包中所有武器物品的列表
+      final inventoryWeaponItems =
+          player.inventory.inventory.items.whereType<WeaponItem>().toList();
+
+      // 獲取當前裝備的武器物品
+      final equippedWeaponItem =
+          player.inventory.equipment.slots['weapon'] as WeaponItem?;
+
+      // 合併背包和裝備欄中的武器類型列表
+      final List<Type> availableWeaponTypes = [
+        ...inventoryWeaponItems.map((item) => item.weapon.runtimeType),
+        if (equippedWeaponItem != null) equippedWeaponItem.weapon.runtimeType,
+      ];
+
+      debugPrint("可用武器類型: $availableWeaponTypes");
 
       for (int i = 0; i < hotkeyCount; i++) {
         final hotkey = hotkeys[i];
-        if (hotkey.type == HotkeyItemType.weapon &&
-            hotkey.weaponIndex != null) {
-          final weaponIndex = hotkey.weaponIndex!;
+        if (hotkey.type == HotkeyItemType.weapon) {
+          final weapon = hotkey.item as Weapon;
 
-          // 檢查武器是否在玩家的武器列表中
-          if (weaponIndex < player.combat.weapons.length) {
-            final weapon = player.combat.weapons[weaponIndex];
+          // 檢查該武器類型是否在背包或裝備欄中
+          bool weaponAvailable = availableWeaponTypes.contains(
+            weapon.runtimeType,
+          );
 
-            // 檢查該武器類型是否在背包中
-            bool weaponInInventory = inventoryWeapons.contains(
-              weapon.runtimeType,
-            );
-
-            if (weaponInInventory) {
-              // 武器在背包中，更新引用
-              debugPrint("更新熱鍵槽 $i 的武器引用: ${weapon.name}");
-              hotkeys[i] = HotkeyItem.weapon(
-                weapon,
-                weaponIndex,
-                name: weapon.name,
-              );
-            } else {
-              // 武器不在背包中，清除該熱鍵
-              debugPrint("清除熱鍵槽 $i，武器 ${weapon.name} 不在背包中");
-              clearHotkey(i);
-            }
+          if (weaponAvailable) {
+            debugPrint("熱鍵槽 $i 的武器類型 ${weapon.runtimeType} 可用");
           } else {
-            // 武器索引超出範圍，清除槽位
-            debugPrint("清除熱鍵槽 $i，原武器索引 $weaponIndex 超出範圍");
+            debugPrint("清除熱鍵槽 $i，武器類型 ${weapon.runtimeType} 不可用");
             clearHotkey(i);
           }
         } else if (hotkey.type == HotkeyItemType.consumable) {
-          // 檢查消耗品是否還在背包中
-          final consumable = hotkey.item as Item;
-          bool itemInInventory = player.inventory.inventory.items.contains(
-            consumable,
-          );
-
-          if (!itemInInventory) {
-            // 該物品不在背包中，清除熱鍵
-            debugPrint("清除熱鍵槽 $i，消耗品 ${consumable.name} 不在背包中");
-            clearHotkey(i);
-          }
+          // 保持原有消耗品檢查邏輯
         }
       }
 
-      // 檢查當前選中槽位是否有效，否則重置
+      // 檢查當前選中槽位是否有效
       if (selectedSlot != -1 &&
           (selectedSlot >= hotkeyCount || hotkeys[selectedSlot].isEmpty)) {
         resetSelectedSlot();

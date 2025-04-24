@@ -7,29 +7,21 @@ class Equipment {
   // 裝備槽位定義
   final Map<String, Item?> slots = {
     'weapon': null, // 武器
-    'helmet': null, // 頭盔
     'armor': null, // 胸甲
-    'gloves': null, // 手套
-    'boots': null, // 鞋子
-    'amulet': null, // 護符
-    'ring': null, // 戒指
   };
 
   // 裝備類型與對應槽位的映射
-  final Map<String, String> typeToSlot = {
-    'weapon': 'weapon',
-    'helmet': 'helmet',
-    'armor': 'armor',
-    'gloves': 'gloves',
-    'boots': 'boots',
-    'amulet': 'amulet',
-    'ring': 'ring',
-  };
+  final Map<String, String> typeToSlot = {'weapon': 'weapon', 'armor': 'armor'};
 
   /// 獲取當前裝備的武器
   Weapon? getCurrentWeapon() {
     final weaponItem = slots['weapon'] as WeaponItem?;
     return weaponItem?.weapon;
+  }
+
+  /// 獲取背包中的所有武器物品
+  List<WeaponItem> getInventoryWeapons(List<Item> inventoryItems) {
+    return inventoryItems.whereType<WeaponItem>().cast<WeaponItem>().toList();
   }
 
   /// 裝備物品

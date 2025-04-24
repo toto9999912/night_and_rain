@@ -20,7 +20,12 @@ class WeaponItem extends Item {
     super.iconPath,
     super.spriteX = 0, // 預設使用精靈圖第一個位置
     super.spriteY = 0,
-  }) : super(type: ItemType.weapon, maxStackSize: 1);
+  }) : super(
+         type: ItemType.weapon,
+         maxStackSize: 1,
+         isEquippable: true, // 添加這行，標記為可裝備
+         equipType: 'weapon', // 添加這行，設定裝備類型
+       );
 
   @override
   bool use(Player player) {
