@@ -17,34 +17,32 @@ class InputManager {
     // 在每次按鍵事件開始時確保熱鍵系統與玩家武器同步
     game.hotkeysHud.updateWeaponReferences();
 
-    // 如果背包或角色面板開啟，且按下的是數字鍵1-4，則優先處理物品綁定
+    // 如果背包或角色面板開啟，且按下的是數字鍵1-4或E鍵，則優先處理物品操作
     if (game.player.inventory.isUIVisible && event is KeyDownEvent) {
+      // 獲取背包UI實例
+      final inventoryUI = game.player.inventory.inventoryUI;
+
+      // 處理數字鍵1-4綁定熱鍵
       if (event.logicalKey == LogicalKeyboardKey.digit1 ||
           event.logicalKey == LogicalKeyboardKey.digit2 ||
           event.logicalKey == LogicalKeyboardKey.digit3 ||
           event.logicalKey == LogicalKeyboardKey.digit4) {
         debugPrint("【調試】輸入管理器接收到數字鍵: ${event.logicalKey}，將轉發給背包UI處理");
 
-        // 直接獲取背包UI實例並轉發事件
-        final inventoryUI = game.player.inventory.inventoryUI;
-        if (inventoryUI.controller.isBindingHotkey) {
-          final keyNumber =
-              event.logicalKey == LogicalKeyboardKey.digit1
-                  ? 1
-                  : event.logicalKey == LogicalKeyboardKey.digit2
-                  ? 2
-                  : event.logicalKey == LogicalKeyboardKey.digit3
-                  ? 3
-                  : 4;
+        // 轉發鍵盤事件給背包UI處理
+        return inventoryUI.onKeyEvent(event, keysPressed)
+            ? KeyEventResult.handled
+            : KeyEventResult.ignored;
+      }
 
-          final hotkeySlot = keyNumber - 1;
-          debugPrint("【調試】直接綁定物品到熱鍵槽 $hotkeySlot");
+      // 處理E鍵使用/裝備物品
+      if (event.logicalKey == LogicalKeyboardKey.keyE) {
+        debugPrint("【調試】輸入管理器接收到E鍵，將轉發給背包UI處理");
 
-          if (inventoryUI.controller.bindingItemIndex != null) {
-            inventoryUI.bindSelectedItemToHotkey(hotkeySlot);
-          }
-          return KeyEventResult.handled;
-        }
+        // 轉發鍵盤事件給背包UI處理
+        return inventoryUI.onKeyEvent(event, keysPressed)
+            ? KeyEventResult.handled
+            : KeyEventResult.ignored;
       }
     }
 
@@ -72,8 +70,8 @@ class InputManager {
       return KeyEventResult.handled;
     }
 
-    // 處理數字鍵 1-4 快捷鍵
-    if (event is KeyDownEvent) {
+    // 如果UI沒有開啟，才處理數字鍵1-4的熱鍵功能
+    if (!game.player.inventory.isUIVisible && event is KeyDownEvent) {
       if (event.logicalKey == LogicalKeyboardKey.digit1) {
         game.hotkeysHud.useHotkey(0);
         return KeyEventResult.handled;

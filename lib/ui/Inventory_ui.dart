@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/flame.dart';
@@ -5,221 +7,61 @@ import 'package:flame/sprite.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../main.dart';
-import '../components/enums/item_type.dart';
 import '../components/items/inventory.dart';
 import '../components/items/equipment.dart';
-import '../components/items/weapon_item.dart';
+import '../components/items/item.dart';
+import '../controllers/inventory_ui_controller.dart';
 import '../player.dart';
-import '../utils/ui_utils.dart'; // 引入公共 UI 工具類
+import '../utils/ui_utils.dart';
 
-/// 背包 UI 的控制器類，處理業務邏輯，不包含渲染邏輯
-class InventoryUIController {
-  final NightAndRainGame game;
-  final Inventory inventory;
-  final Equipment equipment;
-
-  // UI 狀態 (仍需在控制器中保存，但只限業務邏輯相關的狀態)
-  bool isVisible = false;
-  int? selectedItemIndex;
-  String? selectedEquipSlot;
-
-  // 熱鍵綁定相關狀態
-  bool isBindingHotkey = false;
-  int? bindingItemIndex;
-
-  InventoryUIController({
-    required this.game,
-    required this.inventory,
-    required this.equipment,
-  });
-
-  /// 選擇背包中的物品
-  void selectItem(int? index) {
-    selectedItemIndex = index;
-    // 如果選中了新物品，重置綁定狀態
-    if (index != null &&
-        (bindingItemIndex == null || bindingItemIndex != index)) {
-      isBindingHotkey = false;
-      bindingItemIndex = null;
-      debugPrint("【調試】選中新物品，索引: $selectedItemIndex");
-    }
-  }
-
-  /// 嘗試綁定熱鍵
-  void toggleBindingMode(int index) {
-    // 如果點擊已選中的物品，則啟動熱鍵綁定模式
-    if (index == selectedItemIndex) {
-      // 切換到熱鍵綁定模式
-      isBindingHotkey = true;
-      bindingItemIndex = index;
-      debugPrint("【調試】啟動熱鍵綁定模式，物品索引: $bindingItemIndex");
-      _showMessage("請按下 1-4 數字鍵將此物品綁定到熱鍵欄");
-    } else {
-      // 選中新物品
-      selectedItemIndex = index;
-      // 重置綁定狀態
-      isBindingHotkey = false;
-      bindingItemIndex = null;
-    }
-  }
-
-  /// 將選中的物品綁定到指定熱鍵槽位
-  bool bindSelectedItemToHotkey(int hotkeySlot) {
-    if (selectedItemIndex == null ||
-        selectedItemIndex! >= inventory.items.length) {
-      debugPrint("【調試】綁定失敗：無效的物品索引 $selectedItemIndex");
-      return false;
-    }
-
-    final item = inventory.items[selectedItemIndex!];
-    debugPrint("【調試】直接綁定物品到熱鍵槽 $hotkeySlot");
-    debugPrint("【調試】嘗試綁定物品: ${item.name}，類型: ${item.type}，到熱鍵槽: $hotkeySlot");
-
-    // 獲取HotkeysHud實例
-    final hotkeysHud = game.hotkeysHud;
-
-    if (item.type == ItemType.weapon) {
-      // 武器物品，直接綁定而不檢查是否已裝備
-      final weaponItem = item as WeaponItem;
-      debugPrint("【調試】武器類型: ${weaponItem.weapon.runtimeType}");
-
-      // 直接綁定武器到熱鍵，不需要先裝備
-      debugPrint("【調試】直接綁定武器 ${weaponItem.name} 到熱鍵槽 $hotkeySlot");
-
-      // 新方法：直接綁定武器物品而不是武器實例
-      hotkeysHud.setWeaponItemHotkey(hotkeySlot, weaponItem);
-      _showBindSuccessMessage(item.name, hotkeySlot);
-      return true;
-    } else {
-      // 如果是消耗品或其他類型物品，直接添加到熱鍵
-      debugPrint("【調試】綁定消耗品 ${item.name} 到熱鍵槽 $hotkeySlot");
-      hotkeysHud.setConsumableHotkey(hotkeySlot, item);
-      _showBindSuccessMessage(item.name, hotkeySlot);
-      return true;
-    }
-  }
-
-  /// 處理背包內物品的使用
-  void useSelectedItem() {
-    if (selectedItemIndex != null &&
-        selectedItemIndex! < inventory.items.length) {
-      inventory.useItem(selectedItemIndex!);
-    }
-  }
-
-  /// 處理鍵盤事件，返回是否已處理
-  bool handleKeyEvent(LogicalKeyboardKey key, bool isKeyDown) {
-    if (!isVisible) return false;
-
-    if (isKeyDown) {
-      final keyNumber = _getNumberFromKey(key);
-
-      // 如果正在綁定模式且按下了1-4數字鍵
-      if (isBindingHotkey &&
-          bindingItemIndex != null &&
-          bindingItemIndex! < inventory.items.length &&
-          keyNumber != null &&
-          keyNumber >= 1 &&
-          keyNumber <= 4) {
-        final hotkeySlot = keyNumber - 1;
-        if (bindSelectedItemToHotkey(hotkeySlot)) {
-          // 綁定後關閉綁定模式
-          isBindingHotkey = false;
-          bindingItemIndex = null;
-        }
-        return true;
-      }
-      // 如果已選中物品並且按下了1-4數字鍵 (非綁定模式)
-      else if (selectedItemIndex != null &&
-          selectedItemIndex! < inventory.items.length &&
-          keyNumber != null &&
-          keyNumber >= 1 &&
-          keyNumber <= 4) {
-        final hotkeySlot = keyNumber - 1; // 轉換為0-3的索引
-        if (bindSelectedItemToHotkey(hotkeySlot)) {
-          // 綁定後關閉綁定模式
-          isBindingHotkey = false;
-          bindingItemIndex = null;
-        }
-        return true;
-      }
-
-      // 一般模式 - 使用數字鍵1-9快速使用物品
-      if (keyNumber != null &&
-          keyNumber > 0 &&
-          keyNumber <= inventory.items.length) {
-        debugPrint("【調試】使用物品索引: ${keyNumber - 1}");
-        inventory.useItem(keyNumber - 1);
-        return true;
-      }
-    }
-
-    return true;
-  }
-
-  /// 顯示成功綁定的消息
-  void _showBindSuccessMessage(String itemName, int hotkeySlot) {
-    _showMessage("已將 $itemName 綁定至熱鍵 ${hotkeySlot + 1}");
-  }
-
-  /// 顯示消息
-  void _showMessage(String message) {
-    game.showMessage(message);
-  }
-
-  /// 從按鍵獲取數字（1-9）
-  int? _getNumberFromKey(LogicalKeyboardKey key) {
-    if (key == LogicalKeyboardKey.digit1) return 1;
-    if (key == LogicalKeyboardKey.digit2) return 2;
-    if (key == LogicalKeyboardKey.digit3) return 3;
-    if (key == LogicalKeyboardKey.digit4) return 4;
-    if (key == LogicalKeyboardKey.digit5) return 5;
-    if (key == LogicalKeyboardKey.digit6) return 6;
-    if (key == LogicalKeyboardKey.digit7) return 7;
-    if (key == LogicalKeyboardKey.digit8) return 8;
-    if (key == LogicalKeyboardKey.digit9) return 9;
-    return null;
-  }
-
-  /// 打開背包
-  void open() {
-    isVisible = true;
-  }
-
-  /// 關閉背包
-  void close() {
-    isVisible = false;
-    selectedItemIndex = null;
-    isBindingHotkey = false;
-    bindingItemIndex = null;
-  }
-
-  /// 切換背包開關狀態
-  void toggle() {
-    isVisible ? close() : open();
-  }
-}
-
-/// 背包 UI 視圖類，只處理渲染和使用者輸入，不包含業務邏輯
+/// 美化版背包 UI 視圖類
 class InventoryUI extends PositionComponent
-    with TapCallbacks, KeyboardHandler, HasGameReference<NightAndRainGame> {
+    with
+        TapCallbacks,
+        HoverCallbacks,
+        KeyboardHandler,
+        HasGameReference<NightAndRainGame> {
   // 視圖設置和狀態
-  final double padding = 10.0;
-  final double itemSize = 60.0;
-  final double spacing = 5.0;
+  final double padding = 12.0; // 增加邊距提高可讀性
+  final double itemSize = 64.0; // 略微增大物品格子
+  final double spacing = 6.0; // 稍微增加間距
   final int itemsPerRow = 5;
 
-  // 懸停元素視圖狀態（僅UI相關，不影響邏輯）
+  // UI 顏色主題
+  final Color backgroundColor = const Color(0xDD222233); // 深藍灰背景
+  final Color selectedColor = const Color(0xFF4466AA); // 藍色選中色
+  final Color hoverColor = Colors.amber; // 琥珀色懸停色
+  final Color borderColor = const Color(0xFF6688CC); // 亮藍色邊框
+  final Color textColor = Colors.white;
+  final Color titleColor = const Color(0xFFFFD700); // 金色標題
+  final Color accentColor = const Color(0xFF66CCFF); // 亮藍色強調
+
+  // 反饋動畫相關
+  double _selectionPulse = 0.0;
+  bool _pulseIncreasing = true;
+  final double _pulseSpeed = 2.0;
+
+  // 物品使用提示動畫
+  double _hintOpacity = 0.0;
+  bool _showingHint = false;
+  String _hintText = "";
+  int? _lastSelectedIndex;
+
+  // 懸停元素視圖狀態
   int? hoveredItemIndex;
   String? hoveredEquipSlot;
 
-  // 角色面板相關設置
-  final double lineHeight = 25.0;
-  final Color titleColor = Colors.yellow;
-  final Color valueColor = Colors.cyan;
-
-  // 控制器 - 使用可空類型，並添加一個安全的 getter
+  // 控制器相關
+  final Inventory _inventory;
+  final Equipment _equipment;
   InventoryUIController? _controller;
+  bool _isInitialized = false;
+
+  InventoryUI({required Inventory inventory, required Equipment equipment})
+    : _inventory = inventory,
+      _equipment = equipment,
+      super(priority: 100);
+
   InventoryUIController get controller {
     if (_controller == null) {
       if (!_isInitialized) {
@@ -242,22 +84,10 @@ class InventoryUI extends PositionComponent
     return _controller!;
   }
 
-  // 存儲構造函數傳入的參數，以便在 onLoad 中初始化控制器
-  final Inventory _inventory;
-  final Equipment _equipment;
-
-  // 標示是否已初始化
-  bool _isInitialized = false;
-
-  InventoryUI({required Inventory inventory, required Equipment equipment})
-    : _inventory = inventory,
-      _equipment = equipment,
-      super(priority: 100);
-
   @override
   Future<void> onLoad() async {
     try {
-      // 在 onLoad 中初始化控制器，此時 game 應該已經可用
+      // 初始化控制器
       _controller = InventoryUIController(
         game: game,
         inventory: _inventory,
@@ -271,12 +101,12 @@ class InventoryUI extends PositionComponent
         srcSize: Vector2(24, 24),
       );
 
-      // 為每個物品加載對應的圖標
+      // 為每個物品加載圖標
       for (final item in _inventory.items) {
         item.sprite = spriteSheet.getSprite(item.spriteX, item.spriteY);
       }
 
-      // 為裝備中的物品也加載圖標
+      // 為裝備中的物品加載圖標
       for (final equipSlot in _equipment.slots.keys) {
         final item = _equipment.slots[equipSlot];
         if (item != null && item.sprite == null) {
@@ -284,13 +114,13 @@ class InventoryUI extends PositionComponent
         }
       }
 
-      // 設置背包UI的大小和位置 - 考慮裝備區域和角色狀態面板
+      // 設置背包UI的大小和位置
       size = Vector2(
-        itemsPerRow * (itemSize + spacing) + padding * 2 + 400, // 增加右側區域寬度
+        itemsPerRow * (itemSize + spacing) + padding * 2 + 400,
         ((controller.inventory.maxSize / itemsPerRow).ceil()) *
                 (itemSize + spacing) +
             padding * 2 +
-            50, // 增加高度以適應角色狀態
+            80, // 增加高度，給物品詳情留出更多空間
       );
 
       // 居中顯示
@@ -306,48 +136,126 @@ class InventoryUI extends PositionComponent
   }
 
   @override
+  void update(double dt) {
+    super.update(dt);
+
+    // 更新選中物品的脈動動畫
+    if (_pulseIncreasing) {
+      _selectionPulse += dt * _pulseSpeed;
+      if (_selectionPulse >= 1.0) {
+        _selectionPulse = 1.0;
+        _pulseIncreasing = false;
+      }
+    } else {
+      _selectionPulse -= dt * _pulseSpeed;
+      if (_selectionPulse <= 0.0) {
+        _selectionPulse = 0.0;
+        _pulseIncreasing = true;
+      }
+    }
+
+    // 更新提示動畫
+    if (_showingHint) {
+      _hintOpacity = math.min(1.0, _hintOpacity + dt * 3.0);
+    } else {
+      _hintOpacity = math.max(0.0, _hintOpacity - dt * 3.0);
+    }
+
+    // 檢查選中物品變化
+    if (controller.selectedItemIndex != _lastSelectedIndex) {
+      _lastSelectedIndex = controller.selectedItemIndex;
+      if (_lastSelectedIndex != null) {
+        // 顯示提示動畫
+        final item = controller.inventory.items[_lastSelectedIndex!];
+        _hintText = item.isEquippable ? "按 E 鍵裝備" : "按 E 鍵使用";
+        _showingHint = true;
+        Future.delayed(Duration(seconds: 2), () {
+          _showingHint = false;
+        });
+      }
+    }
+  }
+
+  @override
   void render(Canvas canvas) {
     super.render(canvas);
 
-    // 如果背包不可見，則不渲染
+    // 不可見時不渲染
     if (!controller.isVisible) return;
 
-    // 繪製背景和邊框
+    // 繪製畫面
     _drawBackground(canvas);
-
-    // 繪製標題
-    UIUtils.drawText(
-      canvas,
-      '背包與角色狀態',
-      Vector2(size.x / 2, padding),
-      align: TextAlign.center,
-      color: Colors.white,
-      fontSize: 18,
-    );
-
-    // 繪製物品格子
+    _drawTitle(canvas);
     _drawItemSlots(canvas);
-
-    // 繪製裝備區域
     _drawEquipmentSlots(canvas);
-
-    // 繪製選中物品的詳細說明
     _drawItemDetails(canvas);
-
-    // 繪製角色狀態面板
     _drawCharacterStats(canvas);
+
+    // 繪製提示動畫
+    if (_hintOpacity > 0 && controller.selectedItemIndex != null) {
+      _drawActionHint(canvas);
+    }
   }
 
   /// 繪製背景和邊框
   void _drawBackground(Canvas canvas) {
-    // 繪製背包背景
+    // 使用漸變背景
     final bgRect = Rect.fromLTWH(0, 0, size.x, size.y);
-    UIUtils.drawRect(
+
+    // 創建漸變色彩
+    final Gradient gradient = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [backgroundColor, backgroundColor.withOpacity(0.95)],
+    );
+
+    // 繪製帶圓角的背景
+    final rrect = RRect.fromRectAndRadius(bgRect, const Radius.circular(15.0));
+
+    // 先畫陰影
+    canvas.drawRRect(
+      rrect.shift(const Offset(4, 4)),
+      Paint()..color = Colors.black.withOpacity(0.5),
+    );
+
+    // 然後畫主要背景
+    canvas.drawRRect(rrect, Paint()..shader = gradient.createShader(bgRect));
+
+    // 最後畫邊框
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..color = borderColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0,
+    );
+  }
+
+  /// 繪製標題
+  void _drawTitle(Canvas canvas) {
+    // 使用陰影和更大字號
+    UIUtils.drawText(
       canvas,
-      bgRect,
-      const Color(0xDD333333),
-      borderColor: Colors.grey,
-      borderWidth: 2.0,
+      '背包與角色狀態',
+      Vector2(size.x / 2, padding + 5),
+      align: TextAlign.center,
+      color: titleColor,
+      fontSize: 24,
+      bold: true,
+      // 需要在UIUtils中添加這個參數
+    );
+
+    // 在標題下方添加分隔線
+    final lineY = padding + 35;
+    final linePaint =
+        Paint()
+          ..color = borderColor.withOpacity(0.7)
+          ..strokeWidth = 1.5;
+
+    canvas.drawLine(
+      Offset(padding * 2, lineY),
+      Offset(size.x - padding * 2, lineY),
+      linePaint,
     );
   }
 
@@ -358,54 +266,154 @@ class InventoryUI extends PositionComponent
       final col = i % itemsPerRow;
 
       final x = padding + col * (itemSize + spacing);
-      final y = padding + 30 + row * (itemSize + spacing); // 30 為標題高度
+      final y = padding + 45 + row * (itemSize + spacing); // 45為標題和分隔線的高度
 
-      // 繪製格子
-      final slotRect = Rect.fromLTWH(x, y, itemSize, itemSize);
-      UIUtils.drawRect(
+      // 判斷是否選中或懸停
+      final isSelected = i == controller.selectedItemIndex;
+      final isHovered = i == hoveredItemIndex;
+
+      // 繪製有陰影的格子
+      _drawItemSlot(canvas, x, y, isSelected, isHovered, i);
+    }
+  }
+
+  /// 繪製單個物品格子
+  void _drawItemSlot(
+    Canvas canvas,
+    double x,
+    double y,
+    bool isSelected,
+    bool isHovered,
+    int index,
+  ) {
+    final slotRect = Rect.fromLTWH(x, y, itemSize, itemSize);
+
+    // 基本格子顏色
+    Color bgColor = const Color(0xFF333344);
+    if (isSelected) {
+      // 選中時使用脈動顏色
+      final pulseColor =
+          Color.lerp(
+            selectedColor,
+            selectedColor.withValues(alpha: 0.65),
+            _selectionPulse,
+          )!;
+      bgColor = pulseColor;
+    }
+
+    // 畫出圓角矩形作為格子
+    final rrect = RRect.fromRectAndRadius(slotRect, const Radius.circular(6.0));
+
+    // 先畫陰影
+    if (isSelected || isHovered) {
+      canvas.drawRRect(
+        rrect.shift(const Offset(2, 2)),
+        Paint()..color = Colors.black.withOpacity(0.3),
+      );
+    }
+
+    // 繪製格子背景
+    canvas.drawRRect(rrect, Paint()..color = bgColor);
+
+    // 繪製格子邊框
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..color =
+            isHovered
+                ? hoverColor
+                : (isSelected
+                    ? selectedColor.withValues(alpha: 0.8)
+                    : Colors.grey.shade700)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = isSelected || isHovered ? 2.0 : 1.0,
+    );
+
+    // 如果格子有物品，則繪製物品
+    if (index < controller.inventory.items.length) {
+      final item = controller.inventory.items[index];
+
+      // 在物品下方繪製圓形高亮
+      if (isSelected) {
+        canvas.drawCircle(
+          Offset(x + itemSize / 2, y + itemSize / 2),
+          itemSize / 2 - 8,
+          Paint()
+            ..color = item.rarityColor.withValues(alpha: 0.2)
+            ..style = PaintingStyle.fill,
+        );
+      }
+
+      // 繪製物品圖示
+      item.sprite?.render(
         canvas,
-        slotRect,
-        i == controller.selectedItemIndex
-            ? const Color(0xFF555555)
-            : const Color(0xFF444444),
-        borderColor:
-            i == hoveredItemIndex ? Colors.yellow : Colors.grey.shade600,
-        borderWidth: 1.0,
+        position: Vector2(
+          x + itemSize / 2 - itemSize * 0.35,
+          y + itemSize / 2 - itemSize * 0.35,
+        ),
+        size: Vector2(itemSize * 0.7, itemSize * 0.7),
       );
 
-      // 如果格子有物品，則繪製物品
-      if (i < controller.inventory.items.length) {
-        final item = controller.inventory.items[i];
+      // 繪製物品名稱背景
+      final textBgRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(x + 2, y + itemSize - 18, itemSize - 4, 16),
+        const Radius.circular(4.0),
+      );
 
-        // 繪製物品圖示
-        item.sprite?.render(
-          canvas,
-          position: Vector2(x, y),
-          size: Vector2(itemSize, itemSize),
+      canvas.drawRRect(
+        textBgRect,
+        Paint()..color = Colors.black.withOpacity(0.6),
+      );
+
+      // 繪製物品名稱
+      UIUtils.drawText(
+        canvas,
+        item.name,
+        Vector2(x + itemSize / 2, y + itemSize - 10),
+        align: TextAlign.center,
+        color: item.rarityColor,
+        fontSize: 12,
+      );
+
+      // 如果是可堆疊物品且數量大於1，則顯示數量
+      if (item.isStackable && item.quantity > 1) {
+        // 先畫一個小背景
+        final countBgRect = RRect.fromRectAndRadius(
+          Rect.fromLTWH(x + itemSize - 22, y + 2, 20, 18),
+          const Radius.circular(4.0),
         );
 
-        // 繪製物品名稱
+        canvas.drawRRect(
+          countBgRect,
+          Paint()..color = Colors.black.withOpacity(0.6),
+        );
+
+        // 再畫數量文字
         UIUtils.drawText(
           canvas,
-          item.name,
-          Vector2(x + itemSize / 2, y + itemSize - 10),
+          item.quantity.toString(),
+          Vector2(x + itemSize - 12, y + 11),
           align: TextAlign.center,
-          color: item.rarityColor,
+          color: Colors.white,
           fontSize: 12,
+          bold: true,
         );
+      }
 
-        // 如果是可堆疊物品且數量大於1，則顯示數量
-        if (item.isStackable && item.quantity > 1) {
-          UIUtils.drawText(
-            canvas,
-            item.quantity.toString(),
-            Vector2(x + itemSize - 5, y + 15),
-            align: TextAlign.right,
-            color: Colors.white,
-            fontSize: 14,
-            bold: true,
-          );
-        }
+      // 如果物品稀有度高，添加閃光效果
+      if (item.rarity.index >= 2) {
+        // rare或以上
+        // 閃光效果透明度隨脈動變化
+        final glowOpacity = 0.3 + _selectionPulse * 0.4;
+
+        canvas.drawCircle(
+          Offset(x + itemSize / 2, y + itemSize / 2),
+          itemSize / 2 - 4,
+          Paint()
+            ..color = item.rarityColor.withOpacity(glowOpacity * 0.3)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.0,
+        );
       }
     }
   }
@@ -413,45 +421,620 @@ class InventoryUI extends PositionComponent
   /// 繪製裝備區域
   void _drawEquipmentSlots(Canvas canvas) {
     final equipSlots = controller.equipment.slots.keys.toList();
+
+    // 先畫裝備區域背景面板
+    final equipBackRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        size.x - 220,
+        padding + 45,
+        200,
+        equipSlots.length * (itemSize + spacing) + padding,
+      ),
+      const Radius.circular(8.0),
+    );
+
+    canvas.drawRRect(
+      equipBackRect,
+      Paint()..color = backgroundColor.withOpacity(0.5),
+    );
+
+    canvas.drawRRect(
+      equipBackRect,
+      Paint()
+        ..color = borderColor.withValues(alpha: 0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0,
+    );
+
+    // 繪製"裝備"標題
+    UIUtils.drawText(
+      canvas,
+      '角色裝備',
+      Vector2(size.x - 120, padding + 55),
+      align: TextAlign.center,
+      color: titleColor,
+      fontSize: 18,
+      bold: true,
+    );
+
+    // 繪製各裝備槽位
     for (int i = 0; i < equipSlots.length; i++) {
       final slot = equipSlots[i];
       final x = size.x - 200 + padding; // 裝備區域的X位置
-      final y = padding + 30 + i * (itemSize + spacing); // 裝備區域的Y位置
+      final y = padding + 85 + i * (itemSize + spacing); // 裝備區域的Y位置
 
-      // 繪製裝備格子
-      final slotRect = Rect.fromLTWH(x, y, itemSize, itemSize);
-      UIUtils.drawRect(
+      // 繪製槽位名稱
+      UIUtils.drawText(
         canvas,
-        slotRect,
-        slot == controller.selectedEquipSlot
-            ? const Color(0xFF555555)
-            : const Color(0xFF444444),
-        borderColor:
-            slot == hoveredEquipSlot ? Colors.yellow : Colors.grey.shade600,
-        borderWidth: 1.0,
+        '${_getSlotDisplayName(slot)}:',
+        Vector2(x, y + itemSize / 2),
+        align: TextAlign.left,
+        color: Colors.white,
+        fontSize: 14,
       );
 
-      // 如果格子有裝備，則繪製裝備
-      final equipItem = controller.equipment.slots[slot];
-      if (equipItem != null) {
-        // 繪製裝備圖示
-        equipItem.sprite?.render(
-          canvas,
-          position: Vector2(x, y),
-          size: Vector2(itemSize, itemSize),
-        );
+      // 判斷槽位狀態
+      final isSelected = slot == controller.selectedEquipSlot;
+      final isHovered = slot == hoveredEquipSlot;
 
-        // 繪製裝備名稱
-        UIUtils.drawText(
+      // 繪製裝備槽
+      _drawEquipSlot(canvas, x + 90, y, isSelected, isHovered, slot);
+    }
+  }
+
+  /// 繪製單個裝備槽
+  void _drawEquipSlot(
+    Canvas canvas,
+    double x,
+    double y,
+    bool isSelected,
+    bool isHovered,
+    String slot,
+  ) {
+    final slotRect = Rect.fromLTWH(x, y, itemSize, itemSize);
+
+    // 基本格子顏色
+    Color bgColor = const Color(0xFF333344);
+    if (isSelected) {
+      // 選中時使用脈動顏色
+      final pulseColor =
+          Color.lerp(
+            selectedColor,
+            selectedColor.withValues(alpha: 0.65),
+            _selectionPulse,
+          )!;
+      bgColor = pulseColor;
+    }
+
+    // 畫出圓角矩形作為格子
+    final rrect = RRect.fromRectAndRadius(slotRect, const Radius.circular(6.0));
+
+    // 先畫陰影
+    if (isSelected || isHovered) {
+      canvas.drawRRect(
+        rrect.shift(const Offset(2, 2)),
+        Paint()..color = Colors.black.withOpacity(0.3),
+      );
+    }
+
+    // 繪製格子背景
+    canvas.drawRRect(rrect, Paint()..color = bgColor);
+
+    // 繪製格子邊框
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..color =
+            isHovered
+                ? hoverColor
+                : (isSelected
+                    ? selectedColor.withValues(alpha: 0.8)
+                    : Colors.grey.shade700)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = isSelected || isHovered ? 2.0 : 1.0,
+    );
+
+    // 如果有裝備，繪製裝備
+    final equipItem = controller.equipment.slots[slot];
+    if (equipItem != null) {
+      // 繪製裝備圖示
+      equipItem.sprite?.render(
+        canvas,
+        position: Vector2(
+          x + itemSize / 2 - itemSize * 0.35,
+          y + itemSize / 2 - itemSize * 0.35,
+        ),
+        size: Vector2(itemSize * 0.7, itemSize * 0.7),
+      );
+
+      // 繪製裝備名稱背景
+      final textBgRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(x + 2, y + itemSize - 18, itemSize - 4, 16),
+        const Radius.circular(4.0),
+      );
+
+      canvas.drawRRect(
+        textBgRect,
+        Paint()..color = Colors.black.withOpacity(0.6),
+      );
+
+      // 繪製裝備名稱
+      UIUtils.drawText(
+        canvas,
+        equipItem.name,
+        Vector2(x + itemSize / 2, y + itemSize - 10),
+        align: TextAlign.center,
+        color: equipItem.rarityColor,
+        fontSize: 12,
+      );
+
+      // 如果裝備稀有度高，添加閃光效果
+      if (equipItem.rarity.index >= 2) {
+        // rare或以上
+        // 閃光效果透明度隨脈動變化
+        final glowOpacity = 0.3 + _selectionPulse * 0.4;
+
+        canvas.drawCircle(
+          Offset(x + itemSize / 2, y + itemSize / 2),
+          itemSize / 2 - 4,
+          Paint()
+            ..color = equipItem.rarityColor.withOpacity(glowOpacity * 0.3)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.0,
+        );
+      }
+    } else {
+      // 如果沒有裝備，顯示空槽位圖示
+      canvas.drawLine(
+        Offset(x + 10, y + 10),
+        Offset(x + itemSize - 10, y + itemSize - 10),
+        Paint()
+          ..color = Colors.grey.withOpacity(0.5)
+          ..strokeWidth = 2.0,
+      );
+
+      canvas.drawLine(
+        Offset(x + itemSize - 10, y + 10),
+        Offset(x + 10, y + itemSize - 10),
+        Paint()
+          ..color = Colors.grey.withOpacity(0.5)
+          ..strokeWidth = 2.0,
+      );
+    }
+  }
+
+  /// 繪製角色狀態面板
+  void _drawCharacterStats(Canvas canvas) {
+    final Player player = game.player;
+
+    // 繪製角色狀態面板背景
+    final statsBackRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        size.x - 220,
+        padding +
+            45 +
+            controller.equipment.slots.length * (itemSize + spacing) +
+            padding +
+            10,
+        200,
+        size.y -
+            (padding +
+                45 +
+                controller.equipment.slots.length * (itemSize + spacing) +
+                padding +
+                10) -
+            90,
+      ),
+      const Radius.circular(8.0),
+    );
+
+    canvas.drawRRect(
+      statsBackRect,
+      Paint()..color = backgroundColor.withOpacity(0.5),
+    );
+
+    canvas.drawRRect(
+      statsBackRect,
+      Paint()
+        ..color = borderColor.withOpacity(0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0,
+    );
+
+    // 角色狀態區域起始位置
+    final statsX = size.x - 210;
+    double y = statsBackRect.top + 20;
+
+    // 繪製角色狀態標題
+    UIUtils.drawText(
+      canvas,
+      '角色狀態',
+      Vector2(size.x - 120, y),
+      align: TextAlign.center,
+      color: titleColor,
+      fontSize: 18,
+      bold: true,
+    );
+
+    y += 25;
+
+    // 繪製分隔線
+    canvas.drawLine(
+      Offset(statsX, y),
+      Offset(statsX + 180, y),
+      Paint()
+        ..color = borderColor.withOpacity(0.5)
+        ..strokeWidth = 1.0,
+    );
+
+    y += 15;
+
+    // 繪製基礎屬性
+    _drawStatBar(
+      canvas,
+      '生命值',
+      player.currentHealth / player.maxHealth,
+      '${player.currentHealth.toInt()}/${player.maxHealth.toInt()}',
+      statsX,
+      y,
+      Colors.red,
+    );
+    y += 25;
+
+    _drawStatBar(
+      canvas,
+      '魔力值',
+      player.currentMana / player.maxMana,
+      '${player.currentMana.toInt()}/${player.maxMana.toInt()}',
+      statsX,
+      y,
+      Colors.blue,
+    );
+    y += 25;
+
+    // 攻擊力
+    _drawStat(
+      canvas,
+      '攻擊力',
+      player.attack.toStringAsFixed(1),
+      statsX,
+      y,
+      accentColor,
+    );
+    y += 20;
+
+    // 防禦力
+    _drawStat(
+      canvas,
+      '防禦力',
+      player.defense.toStringAsFixed(1),
+      statsX,
+      y,
+      accentColor,
+    );
+    y += 20;
+
+    // 速度
+    _drawStat(
+      canvas,
+      '速度',
+      player.speed.toStringAsFixed(1),
+      statsX,
+      y,
+      accentColor,
+    );
+    y += 20;
+
+    // 等級和經驗
+    _drawStat(canvas, '等級', '${player.level}', statsX, y, accentColor);
+    y += 20;
+
+    // 經驗值進度條
+    _drawExpBar(
+      canvas,
+      player.experience / player.experienceToNextLevel,
+      '經驗: ${player.experience}/${player.experienceToNextLevel}',
+      statsX,
+      y,
+      Colors.green,
+    );
+
+    y += 30;
+
+    // 裝備加成區塊
+    if (player.equipment.getTotalStats().isNotEmpty) {
+      UIUtils.drawText(
+        canvas,
+        '裝備加成',
+        Vector2(statsX + 90, y),
+        align: TextAlign.center,
+        color: titleColor,
+        fontSize: 16,
+        bold: true,
+      );
+
+      y += 20;
+
+      // 繪製分隔線
+      canvas.drawLine(
+        Offset(statsX, y),
+        Offset(statsX + 180, y),
+        Paint()
+          ..color = borderColor.withOpacity(0.5)
+          ..strokeWidth = 1.0,
+      );
+
+      y += 15;
+
+      // 獲取所有裝備的總加成
+      final equipStats = player.equipment.getTotalStats();
+
+      // 攻擊加成
+      final attackBonus = equipStats['attack'] ?? 0;
+      if (attackBonus != 0) {
+        _drawBonusStat(
           canvas,
-          equipItem.name,
-          Vector2(x + itemSize / 2, y + itemSize - 10),
-          align: TextAlign.center,
-          color: equipItem.rarityColor,
-          fontSize: 12,
+          '攻擊加成',
+          (attackBonus > 0 ? '+' : '') + attackBonus.toStringAsFixed(1),
+          statsX,
+          y,
+          attackBonus > 0 ? Colors.green : Colors.red,
+        );
+        y += 20;
+      }
+
+      // 防禦加成
+      final defenseBonus = equipStats['defense'] ?? 0;
+      if (defenseBonus != 0) {
+        _drawBonusStat(
+          canvas,
+          '防禦加成',
+          (defenseBonus > 0 ? '+' : '') + defenseBonus.toStringAsFixed(1),
+          statsX,
+          y,
+          defenseBonus > 0 ? Colors.green : Colors.red,
+        );
+        y += 20;
+      }
+
+      // 速度加成
+      final speedBonus = equipStats['speed'] ?? 0;
+      if (speedBonus != 0) {
+        _drawBonusStat(
+          canvas,
+          '速度加成',
+          (speedBonus > 0 ? '+' : '') + speedBonus.toStringAsFixed(1),
+          statsX,
+          y,
+          speedBonus > 0 ? Colors.green : Colors.red,
+        );
+        y += 20;
+      }
+
+      // 生命加成
+      final healthBonus = equipStats['maxHealth'] ?? 0;
+      if (healthBonus != 0) {
+        _drawBonusStat(
+          canvas,
+          '生命加成',
+          (healthBonus > 0 ? '+' : '') + healthBonus.toStringAsFixed(1),
+          statsX,
+          y,
+          healthBonus > 0 ? Colors.green : Colors.red,
+        );
+        y += 20;
+      }
+
+      // 魔力加成
+      final manaBonus = equipStats['maxMana'] ?? 0;
+      if (manaBonus != 0) {
+        _drawBonusStat(
+          canvas,
+          '魔力加成',
+          (manaBonus > 0 ? '+' : '') + manaBonus.toStringAsFixed(1),
+          statsX,
+          y,
+          manaBonus > 0 ? Colors.green : Colors.red,
         );
       }
     }
+  }
+
+  /// 繪製進度條樣式的屬性
+  void _drawStatBar(
+    Canvas canvas,
+    String label,
+    double ratio,
+    String value,
+    double x,
+    double y,
+    Color barColor,
+  ) {
+    // 標籤
+    UIUtils.drawText(
+      canvas,
+      '$label:',
+      Vector2(x, y + 10),
+      align: TextAlign.left,
+      color: Colors.white,
+      fontSize: 14,
+    );
+
+    // 進度條背景
+    final barBgRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(x + 70, y, 110, 20),
+      const Radius.circular(4.0),
+    );
+
+    canvas.drawRRect(barBgRect, Paint()..color = Colors.grey.shade800);
+
+    // 進度條前景
+    final barFgRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(x + 70, y, 110 * ratio.clamp(0.0, 1.0), 20),
+      const Radius.circular(4.0),
+    );
+
+    // 創建漸變色彩
+    final Gradient gradient = LinearGradient(
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+      colors: [barColor, barColor.withValues(alpha: 0.7)],
+    );
+
+    canvas.drawRRect(
+      barFgRect,
+      Paint()..shader = gradient.createShader(barFgRect.outerRect),
+    );
+
+    // 數值文字
+    UIUtils.drawText(
+      canvas,
+      value,
+      Vector2(x + 125, y + 10),
+      align: TextAlign.center,
+      color: Colors.white,
+      fontSize: 12,
+      bold: true,
+    );
+  }
+
+  /// 繪製經驗值條
+  void _drawExpBar(
+    Canvas canvas,
+    double ratio,
+    String value,
+    double x,
+    double y,
+    Color barColor,
+  ) {
+    // 進度條背景
+    final barBgRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(x, y, 180, 15),
+      const Radius.circular(4.0),
+    );
+
+    canvas.drawRRect(barBgRect, Paint()..color = Colors.grey.shade800);
+
+    // 進度條前景
+    final barFgRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(x, y, 180 * ratio.clamp(0.0, 1.0), 15),
+      const Radius.circular(4.0),
+    );
+
+    // 創建漸變色彩
+    final Gradient gradient = LinearGradient(
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+      colors: [barColor, barColor.withValues(alpha: 0.7)],
+    );
+
+    canvas.drawRRect(
+      barFgRect,
+      Paint()..shader = gradient.createShader(barFgRect.outerRect),
+    );
+
+    // 數值文字
+    UIUtils.drawText(
+      canvas,
+      value,
+      Vector2(x + 90, y + 7.5),
+      align: TextAlign.center,
+      color: Colors.white,
+      fontSize: 10,
+      bold: true,
+    );
+  }
+
+  /// 繪製普通屬性行
+  void _drawStat(
+    Canvas canvas,
+    String label,
+    String value,
+    double x,
+    double y,
+    Color valueColor,
+  ) {
+    // 繪製屬性名稱
+    UIUtils.drawText(
+      canvas,
+      '$label:',
+      Vector2(x, y),
+      align: TextAlign.left,
+      color: Colors.white,
+      fontSize: 14,
+    );
+
+    // 繪製屬性值背景
+    final valueBgRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(x + 70, y - 12, 110, 22),
+      const Radius.circular(4.0),
+    );
+
+    canvas.drawRRect(
+      valueBgRect,
+      Paint()..color = Colors.black.withOpacity(0.2),
+    );
+
+    // 繪製屬性值
+    UIUtils.drawText(
+      canvas,
+      value,
+      Vector2(x + 125, y),
+      align: TextAlign.center,
+      color: valueColor,
+      fontSize: 14,
+      bold: true,
+    );
+  }
+
+  /// 繪製加成屬性行
+  void _drawBonusStat(
+    Canvas canvas,
+    String label,
+    String value,
+    double x,
+    double y,
+    Color valueColor,
+  ) {
+    // 繪製屬性名稱
+    UIUtils.drawText(
+      canvas,
+      '$label:',
+      Vector2(x, y),
+      align: TextAlign.left,
+      color: Colors.white,
+      fontSize: 14,
+    );
+
+    // 繪製屬性值背景和邊框
+    final valueBgRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(x + 80, y - 12, 100, 22),
+      const Radius.circular(4.0),
+    );
+
+    canvas.drawRRect(
+      valueBgRect,
+      Paint()..color = Colors.black.withOpacity(0.2),
+    );
+
+    canvas.drawRRect(
+      valueBgRect,
+      Paint()
+        ..color = valueColor.withOpacity(0.7)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0,
+    );
+
+    // 繪製屬性值
+    UIUtils.drawText(
+      canvas,
+      value,
+      Vector2(x + 130, y),
+      align: TextAlign.center,
+      color: valueColor,
+      fontSize: 14,
+      bold: true,
+    );
   }
 
   /// 繪製選中物品的詳細信息
@@ -463,25 +1046,68 @@ class InventoryUI extends PositionComponent
 
     final item = controller.inventory.items[controller.selectedItemIndex!];
     final detailX = padding;
-    final detailY = size.y - 80; // 底部留出空間顯示詳情
+    final detailY = size.y - 90; // 底部留出空間顯示詳情
 
-    // 繪製詳情背景
-    final detailRect = Rect.fromLTWH(
-      detailX,
-      detailY,
-      size.x - padding * 2,
-      70,
+    // 繪製物品詳情背景面板
+    final detailRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(detailX, detailY, size.x - padding * 2, 80),
+      const Radius.circular(8.0),
     );
-    UIUtils.drawRect(canvas, detailRect, const Color(0xFF222222));
+
+    // 繪製漸變背景
+    final Gradient gradient = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [const Color(0xFF333344), const Color(0xFF222233)],
+    );
+
+    canvas.drawRRect(
+      detailRect,
+      Paint()..shader = gradient.createShader(detailRect.outerRect),
+    );
+
+    // 繪製邊框
+    canvas.drawRRect(
+      detailRect,
+      Paint()
+        ..color = item.rarityColor.withOpacity(0.6)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+
+    // 繪製物品圖標背景
+    final iconBgRadius = 28.0;
+    canvas.drawCircle(
+      Offset(detailX + 40, detailY + 40),
+      iconBgRadius,
+      Paint()..color = Colors.black.withOpacity(0.3),
+    );
+
+    // 繪製物品圖標邊框
+    canvas.drawCircle(
+      Offset(detailX + 40, detailY + 40),
+      iconBgRadius,
+      Paint()
+        ..color = item.rarityColor.withOpacity(0.8)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0,
+    );
+
+    // 繪製物品圖示
+    item.sprite?.render(
+      canvas,
+      position: Vector2(detailX + 40 - 20, detailY + 40 - 20),
+      size: Vector2(40, 40),
+    );
 
     // 繪製物品名稱
     UIUtils.drawText(
       canvas,
       item.name,
-      Vector2(detailX + 10, detailY + 15),
+      Vector2(detailX + 90, detailY + 20),
       align: TextAlign.left,
       color: item.rarityColor,
-      fontSize: 16,
+      fontSize: 18,
       bold: true,
     );
 
@@ -489,239 +1115,166 @@ class InventoryUI extends PositionComponent
     UIUtils.drawText(
       canvas,
       item.description,
-      Vector2(detailX + 10, detailY + 35),
-      align: TextAlign.left,
-      color: Colors.white,
-      fontSize: 12,
-    );
-
-    // 繪製使用提示
-    UIUtils.drawText(
-      canvas,
-      '點擊物品使用',
-      Vector2(detailX + 10, detailY + 55),
-      align: TextAlign.left,
-      color: Colors.yellow,
-      fontSize: 12,
-    );
-
-    // 繪製熱鍵綁定提示
-    UIUtils.drawText(
-      canvas,
-      '按下數字鍵 1-4 綁定至熱鍵欄',
-      Vector2(size.x - padding - 10, detailY + 55),
-      align: TextAlign.right,
-      color: Colors.cyan,
-      fontSize: 12,
-    );
-
-    // 如果正在綁定熱鍵，顯示提示
-    if (controller.isBindingHotkey &&
-        controller.bindingItemIndex == controller.selectedItemIndex) {
-      UIUtils.drawText(
-        canvas,
-        '請按下 1-4 數字鍵選擇熱鍵位置',
-        Vector2(size.x / 2, detailY - 10),
-        align: TextAlign.center,
-        color: Colors.yellow,
-        fontSize: 16,
-        bold: true,
-      );
-    }
-  }
-
-  /// 繪製角色狀態面板
-  void _drawCharacterStats(Canvas canvas) {
-    final Player player = game.player;
-
-    // 角色狀態區域
-    final statsX = size.x - 180;
-    double y = padding * 3;
-
-    // 繪製分隔線
-    final dividerPaint =
-        Paint()
-          ..color = Colors.grey.shade600
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1;
-
-    canvas.drawLine(
-      Offset(statsX - 10, padding * 2),
-      Offset(statsX - 10, size.y - padding * 2),
-      dividerPaint,
-    );
-
-    // 繪製角色狀態標題
-    UIUtils.drawText(
-      canvas,
-      '角色狀態',
-      Vector2(statsX + 80, padding * 2),
-      align: TextAlign.center,
-      color: titleColor,
-      fontSize: 18,
-      bold: true,
-    );
-
-    y += lineHeight * 1.5;
-
-    // 生命值
-    _drawStatLine(
-      canvas,
-      '生命值',
-      '${player.currentHealth.toInt()}/${player.maxHealth.toInt()}',
-      statsX,
-      y,
-    );
-    y += lineHeight;
-
-    // 魔力值
-    _drawStatLine(
-      canvas,
-      '魔力值',
-      '${player.currentMana.toInt()}/${player.maxMana.toInt()}',
-      statsX,
-      y,
-    );
-    y += lineHeight;
-
-    // 攻擊力
-    _drawStatLine(canvas, '攻擊力', player.attack.toStringAsFixed(1), statsX, y);
-    y += lineHeight;
-
-    // 防禦力
-    _drawStatLine(canvas, '防禦力', player.defense.toStringAsFixed(1), statsX, y);
-    y += lineHeight;
-
-    // 速度
-    _drawStatLine(canvas, '速度', player.speed.toStringAsFixed(1), statsX, y);
-    y += lineHeight;
-
-    // 等級和經驗
-    _drawStatLine(canvas, '等級', '${player.level}', statsX, y);
-    y += lineHeight;
-
-    _drawStatLine(
-      canvas,
-      '經驗值',
-      '${player.experience}/${player.experienceToNextLevel}',
-      statsX,
-      y,
-    );
-    y += lineHeight * 1.5;
-
-    // 裝備加成區塊
-    UIUtils.drawText(
-      canvas,
-      '裝備加成',
-      Vector2(statsX, y),
-      align: TextAlign.left,
-      color: titleColor,
-      fontSize: 16,
-      bold: true,
-    );
-
-    y += lineHeight * 1.2;
-
-    // 獲取所有裝備的總加成
-    final equipStats = player.equipment.getTotalStats();
-
-    // 攻擊加成
-    final attackBonus = equipStats['attack'] ?? 0;
-    if (attackBonus != 0) {
-      _drawStatLine(
-        canvas,
-        '攻擊加成',
-        (attackBonus > 0 ? '+' : '') + attackBonus.toStringAsFixed(1),
-        statsX,
-        y,
-        valueColor: attackBonus > 0 ? Colors.green : Colors.red,
-      );
-      y += lineHeight;
-    }
-
-    // 防禦加成
-    final defenseBonus = equipStats['defense'] ?? 0;
-    if (defenseBonus != 0) {
-      _drawStatLine(
-        canvas,
-        '防禦加成',
-        (defenseBonus > 0 ? '+' : '') + defenseBonus.toStringAsFixed(1),
-        statsX,
-        y,
-        valueColor: defenseBonus > 0 ? Colors.green : Colors.red,
-      );
-      y += lineHeight;
-    }
-
-    // 速度加成
-    final speedBonus = equipStats['speed'] ?? 0;
-    if (speedBonus != 0) {
-      _drawStatLine(
-        canvas,
-        '速度加成',
-        (speedBonus > 0 ? '+' : '') + speedBonus.toStringAsFixed(1),
-        statsX,
-        y,
-        valueColor: speedBonus > 0 ? Colors.green : Colors.red,
-      );
-      y += lineHeight;
-    }
-
-    // 生命加成
-    final healthBonus = equipStats['maxHealth'] ?? 0;
-    if (healthBonus != 0) {
-      _drawStatLine(
-        canvas,
-        '生命加成',
-        (healthBonus > 0 ? '+' : '') + healthBonus.toStringAsFixed(1),
-        statsX,
-        y,
-        valueColor: healthBonus > 0 ? Colors.green : Colors.red,
-      );
-      y += lineHeight;
-    }
-
-    // 魔力加成
-    final manaBonus = equipStats['maxMana'] ?? 0;
-    if (manaBonus != 0) {
-      _drawStatLine(
-        canvas,
-        '魔力加成',
-        (manaBonus > 0 ? '+' : '') + manaBonus.toStringAsFixed(1),
-        statsX,
-        y,
-        valueColor: manaBonus > 0 ? Colors.green : Colors.red,
-      );
-      y += lineHeight;
-    }
-  }
-
-  /// 繪製屬性行 (給角色面板使用)
-  void _drawStatLine(
-    Canvas canvas,
-    String label,
-    String value,
-    double x,
-    double y, {
-    Color? valueColor,
-  }) {
-    // 繪製屬性名稱
-    UIUtils.drawText(
-      canvas,
-      '$label:',
-      Vector2(x, y),
+      Vector2(detailX + 90, detailY + 45),
       align: TextAlign.left,
       color: Colors.white,
       fontSize: 14,
+      maxWidth: size.x - 200, // 限制寬度，避免文字溢出
     );
 
-    // 繪製屬性值
+    // 繪製物品詳細屬性
+    if (item.stats != null && item.stats!.isNotEmpty) {
+      double statX = size.x - 200;
+      double statY = detailY + 20;
+
+      item.stats!.forEach((key, value) {
+        String statName =
+            key == 'attack'
+                ? '攻擊力'
+                : key == 'defense'
+                ? '防禦力'
+                : key == 'speed'
+                ? '速度'
+                : key == 'maxHealth'
+                ? '生命值'
+                : key == 'maxMana'
+                ? '魔力值'
+                : key;
+
+        UIUtils.drawText(
+          canvas,
+          '$statName: ${value > 0 ? "+" : ""}${value.toStringAsFixed(1)}',
+          Vector2(statX, statY),
+          align: TextAlign.left,
+          color: value > 0 ? Colors.green : Colors.red,
+          fontSize: 12,
+          bold: true,
+        );
+
+        statY += 15;
+      });
+    }
+
+    // 繪製操作提示
+    _drawActionButtons(canvas, item, detailX, detailY);
+  }
+
+  /// 繪製物品操作按鈕
+  void _drawActionButtons(
+    Canvas canvas,
+    Item item,
+    double detailX,
+    double detailY,
+  ) {
+    final actionText = item.isEquippable ? "裝備" : "使用";
+
+    // 繪製使用/裝備按鈕
+    final useButtonRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(size.x - 280, detailY + 30, 80, 30),
+      const Radius.circular(15.0),
+    );
+
+    // 按鈕背景
+    canvas.drawRRect(
+      useButtonRect,
+      Paint()..color = accentColor.withOpacity(0.8),
+    );
+
+    // 按鈕文字
     UIUtils.drawText(
       canvas,
-      value,
-      Vector2(x + 160, y),
-      align: TextAlign.right,
-      color: valueColor ?? this.valueColor,
+      actionText,
+      Vector2(size.x - 240, detailY + 45),
+      align: TextAlign.center,
+      color: Colors.white,
+      fontSize: 14,
+      bold: true,
+    );
+
+    // 按鍵提示
+    UIUtils.drawText(
+      canvas,
+      '(E)',
+      Vector2(size.x - 210, detailY + 45),
+      align: TextAlign.left,
+      color: Colors.white.withOpacity(0.8),
+      fontSize: 12,
+    );
+
+    // 繪製熱鍵綁定按鈕
+    final bindButtonRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(size.x - 180, detailY + 30, 100, 30),
+      const Radius.circular(15.0),
+    );
+
+    // 按鈕背景
+    canvas.drawRRect(
+      bindButtonRect,
+      Paint()..color = Colors.orange.withOpacity(0.8),
+    );
+
+    // 按鈕文字
+    UIUtils.drawText(
+      canvas,
+      '設為熱鍵',
+      Vector2(size.x - 130, detailY + 45),
+      align: TextAlign.center,
+      color: Colors.white,
+      fontSize: 14,
+      bold: true,
+    );
+
+    // 按鍵提示
+    UIUtils.drawText(
+      canvas,
+      '(1-4)',
+      Vector2(size.x - 90, detailY + 45),
+      align: TextAlign.left,
+      color: Colors.white.withOpacity(0.8),
+      fontSize: 12,
+    );
+  }
+
+  /// 繪製動作提示動畫
+  void _drawActionHint(Canvas canvas) {
+    if (controller.selectedItemIndex == null) return;
+
+    final item = controller.inventory.items[controller.selectedItemIndex!];
+    final row = controller.selectedItemIndex! ~/ itemsPerRow;
+    final col = controller.selectedItemIndex! % itemsPerRow;
+
+    final x = padding + col * (itemSize + spacing) + itemSize / 2;
+    final y = padding + 45 + row * (itemSize + spacing) - 30;
+
+    // 繪製提示背景
+    final hintBgRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(x - 50, y - 20, 100, 24),
+      const Radius.circular(12.0),
+    );
+
+    canvas.drawRRect(
+      hintBgRect,
+      Paint()..color = Colors.black.withOpacity(0.6 * _hintOpacity),
+    );
+
+    canvas.drawRRect(
+      hintBgRect,
+      Paint()
+        ..color =
+            item.isEquippable
+                ? Colors.green.withOpacity(0.8 * _hintOpacity)
+                : Colors.blue.withOpacity(0.8 * _hintOpacity)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+
+    // 繪製提示文字
+    UIUtils.drawText(
+      canvas,
+      _hintText,
+      Vector2(x, y - 8),
+      align: TextAlign.center,
+      color: Colors.white.withOpacity(_hintOpacity),
       fontSize: 14,
       bold: true,
     );
@@ -743,18 +1296,78 @@ class InventoryUI extends PositionComponent
     debugPrint("【調試】點擊的物品索引: $itemIndex");
 
     if (itemIndex != null && itemIndex < controller.inventory.items.length) {
-      debugPrint("【調試】點擊的物品: ${controller.inventory.items[itemIndex].name}");
+      // 選中點擊的物品
+      controller.selectItem(itemIndex);
 
-      controller.toggleBindingMode(itemIndex);
+      // 顯示提示訊息
+      final item = controller.inventory.items[itemIndex];
+      final itemTypeText = item.isEquippable ? "裝備" : "使用";
+      game.showMessage("已選擇 ${item.name}，按 E 鍵${itemTypeText}，1-4 鍵設為熱鍵");
+
+      // 顯示動畫提示
+      _hintText = item.isEquippable ? "按 E 鍵裝備" : "按 E 鍵使用";
+      _showingHint = true;
+      Future.delayed(Duration(seconds: 2), () {
+        _showingHint = false;
+      });
+    }
+
+    // 檢查是否點擊了物品詳情底部的按鈕
+    if (controller.selectedItemIndex != null) {
+      final item = controller.inventory.items[controller.selectedItemIndex!];
+      final detailY = size.y - 90;
+
+      // 使用/裝備按鈕
+      final useButtonRect = Rect.fromLTWH(size.x - 280, detailY + 30, 80, 30);
+      if (useButtonRect.contains(localPosition.toOffset())) {
+        controller.useSelectedItem();
+        return;
+      }
+
+      // 熱鍵綁定按鈕
+      final bindButtonRect = Rect.fromLTWH(size.x - 180, detailY + 30, 100, 30);
+      if (bindButtonRect.contains(localPosition.toOffset())) {
+        game.showMessage("請按 1-4 數字鍵將 ${item.name} 綁定到熱鍵欄");
+        return;
+      }
+    }
+
+    // 檢查是否點擊了裝備槽
+    final equipSlots = controller.equipment.slots.keys.toList();
+    for (int i = 0; i < equipSlots.length; i++) {
+      final slot = equipSlots[i];
+      final x = size.x - 200 + padding + 90; // 裝備格子的X位置
+      final y = padding + 85 + i * (itemSize + spacing); // 裝備格子的Y位置
+
+      final equipRect = Rect.fromLTWH(x, y, itemSize, itemSize);
+      if (equipRect.contains(localPosition.toOffset())) {
+        controller.selectedEquipSlot = slot;
+
+        // 如果槽位有裝備，可以顯示卸下提示
+        final equipItem = controller.equipment.slots[slot];
+        if (equipItem != null) {
+          game.showMessage("選擇了 ${equipItem.name}，按 E 鍵卸下");
+        }
+
+        return;
+      }
     }
   }
 
-  /// 鼠標移動事件處理
-  void onPointerMove(Vector2 position) {
-    if (!controller.isVisible) return;
+  /// 獲取滑鼠懸停的裝備槽
+  String? _getHoveredEquipSlot(Vector2 position) {
+    final equipSlots = controller.equipment.slots.keys.toList();
+    for (int i = 0; i < equipSlots.length; i++) {
+      final slot = equipSlots[i];
+      final x = size.x - 200 + padding + 90; // 裝備格子的X位置
+      final y = padding + 85 + i * (itemSize + spacing); // 裝備格子的Y位置
 
-    final localPosition = position - this.position;
-    hoveredItemIndex = _getItemIndexAtPosition(localPosition);
+      final equipRect = Rect.fromLTWH(x, y, itemSize, itemSize);
+      if (equipRect.contains(position.toOffset())) {
+        return slot;
+      }
+    }
+    return null;
   }
 
   /// 根據位置獲取物品索引
@@ -764,14 +1377,18 @@ class InventoryUI extends PositionComponent
 
     // 確保在背包範圍內
     if (x < padding ||
-        x > size.x - padding ||
-        y < padding + 30 ||
-        y > size.y - 80) {
+        x > padding + itemsPerRow * (itemSize + spacing) ||
+        y < padding + 45 ||
+        y >
+            padding +
+                45 +
+                ((controller.inventory.maxSize / itemsPerRow).ceil()) *
+                    (itemSize + spacing)) {
       return null;
     }
 
     final col = ((x - padding) / (itemSize + spacing)).floor();
-    final row = ((y - padding - 30) / (itemSize + spacing)).floor();
+    final row = ((y - padding - 45) / (itemSize + spacing)).floor();
 
     if (col < 0 || col >= itemsPerRow || row < 0) return null;
 
@@ -798,6 +1415,18 @@ class InventoryUI extends PositionComponent
     }
 
     return true;
+  }
+
+  /// 獲取槽位顯示名稱
+  String _getSlotDisplayName(String slot) {
+    switch (slot) {
+      case 'weapon':
+        return '武器';
+      case 'armor':
+        return '護甲';
+      default:
+        return slot;
+    }
   }
 
   /// 對外方法代理到控制器

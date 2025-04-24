@@ -1,5 +1,6 @@
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
+import '../../controllers/inventory_ui_controller.dart';
 import '../../main.dart';
 import '../items/inventory.dart';
 import '../items/equipment.dart';
@@ -17,7 +18,7 @@ class PlayerInventory {
   late Inventory inventory;
   late Equipment equipment;
   late InventoryUI inventoryUI;
-  late CharacterPanel characterPanel;
+
   late DialogueSystem dialogueSystem;
 
   // 參考遊戲主類
@@ -54,8 +55,8 @@ class PlayerInventory {
     // 創建背包UI
     inventoryUI = InventoryUI(inventory: inventory, equipment: equipment);
 
-    // 創建角色面板
-    characterPanel = CharacterPanel();
+    // // 創建角色面板
+    // characterPanel = CharacterPanel();
 
     // 創建對話系統
     dialogueSystem = DialogueSystem();
@@ -69,7 +70,7 @@ class PlayerInventory {
     await gameRef.game.cameraComponent.viewport.add(inventoryUI);
 
     // 添加角色面板
-    await gameRef.game.cameraComponent.viewport.add(characterPanel);
+    // await gameRef.game.cameraComponent.viewport.add(characterPanel);
 
     // 添加對話系統
     await gameRef.game.cameraComponent.viewport.add(dialogueSystem);
@@ -306,10 +307,10 @@ class PlayerInventory {
 
     try {
       final inventoryVisible = getSafeController()?.isVisible ?? false;
-      final characterPanelVisible = characterPanel.isVisible;
+      // final characterPanelVisible = characterPanel.isVisible;
       final dialogueVisible = dialogueSystem.isVisible;
 
-      return inventoryVisible || characterPanelVisible || dialogueVisible;
+      return inventoryVisible || dialogueVisible;
     } catch (e) {
       // 如果任何UI組件尚未完全初始化，則返回false
       debugPrint("【UI錯誤】UI組件尚未完全初始化: $e");
